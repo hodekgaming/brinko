@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07000d">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BRINKO</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #07000d; --panel: #140022; --panel2: #1d0030; --line: rgba(255,68,170,.18);
+    --pri: #e8006b; --acc: #9900ff; --acc2: #ff44aa; --green: #00ffaa; --amber: #ffb347; --red: #ff3355;
+    --text: #ffe8f4; --dim: #b98aa8; --faint: #6a4560;
+    --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.45 "Segoe UI", Roboto, system-ui, sans-serif; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  body::before { content: ""; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(40% 30% at 30% 20%, rgba(153,0,255,.28), transparent 70%),
+      radial-gradient(35% 30% at 75% 35%, rgba(232,0,107,.20), transparent 70%),
+      radial-gradient(45% 35% at 50% 95%, rgba(47,76,255,.14), transparent 70%);
+    animation: drift 24s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(4%, -3%) rotate(8deg); } }
+
+  header { display: flex; align-items: center; gap: 10px; padding: calc(12px + var(--safe-t)) 16px 8px; }
+  .mark { font-weight: 800; letter-spacing: .32em; font-size: 15px; }
+  .pill { margin-left: auto; display: flex; align-items: center; gap: 7px; padding: 5px 11px;
+    border-radius: 99px; background: rgba(20,0,34,.8); border: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .pill.on .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .pill.off .dot { background: var(--red); }
+  .pill.phone { color: var(--amber); border-color: rgba(255,179,71,.4); }
+  .pill.phone .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  #installBtn { display: none; border: 0; border-radius: 99px; padding: 6px 12px; font-weight: 600;
+    color: #fff; background: linear-gradient(135deg, var(--acc2), var(--acc)); font-size: 12px; }
+
+  #stage { position: relative; height: 150px; display: grid; place-items: center; flex-shrink: 0;
+    transition: height .35s cubic-bezier(.2,.8,.2,1); }
+  body.chatting #stage { height: 96px; }
+  #orb { width: 150px; height: 150px; transition: width .35s, height .35s; }
+  body.chatting #orb { width: 96px; height: 96px; }
+
+  #chat { flex: 1; overflow-y: auto; padding: 4px 14px 12px; display: flex; flex-direction: column; gap: 10px;
+    scroll-behavior: smooth; mask-image: linear-gradient(to bottom, transparent 0, #000 18px); }
+  .msg { max-width: 86%; padding: 10px 13px; border-radius: 18px; animation: pop .28s cubic-bezier(.2,.9,.3,1.3);
+    white-space: pre-wrap; word-wrap: break-word; }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+  .me { align-self: flex-end; background: linear-gradient(135deg, #3a0a66, #2a0047); border: 1px solid rgba(180,140,255,.25);
+    border-bottom-right-radius: 6px; }
+  .bot { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+  .bot b.tag { color: var(--acc2); font-size: 11px; letter-spacing: .12em; display: block; margin-bottom: 2px; }
+  .sys { align-self: center; color: var(--dim); font-size: 12.5px; text-align: center; max-width: 92%; }
+  .typing span { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%;
+    background: var(--acc2); animation: bounce 1s infinite; }
+  .typing span:nth-child(2) { animation-delay: .15s } .typing span:nth-child(3) { animation-delay: .3s }
+  @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity: .4 } 40% { transform: translateY(-5px); opacity: 1 } }
+
+  .card { align-self: stretch; background: var(--panel2); border: 1px solid rgba(255,68,170,.3); border-radius: 18px;
+    padding: 12px 14px; animation: pop .3s cubic-bezier(.2,.9,.3,1.3); }
+  .card .k { font-size: 11px; letter-spacing: .14em; color: var(--acc2); font-weight: 700; }
+  .card .v { margin: 4px 0 10px; }
+  .card .quote { padding: 8px 10px; border-left: 3px solid var(--acc2); background: rgba(255,255,255,.04);
+    border-radius: 8px; margin: 6px 0 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { flex: 1; min-width: 120px; border: 0; border-radius: 14px; padding: 11px 14px; font-weight: 700; font-size: 14px;
+    color: #fff; background: linear-gradient(135deg, var(--acc2), var(--acc)); }
+  .btn.ghost { background: rgba(255,255,255,.07); border: 1px solid var(--line); color: var(--text); }
+  .btn:active { transform: scale(.97); }
+
+  #timers { display: flex; gap: 8px; padding: 0 14px; flex-wrap: wrap; }
+  .timer { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px;
+    background: rgba(255,179,71,.12); border: 1px solid rgba(255,179,71,.4); color: var(--amber); font-weight: 700;
+    font-variant-numeric: tabular-nums; font-size: 13px; }
+  .timer button { background: none; border: 0; color: var(--amber); font-size: 15px; padding: 0 2px; }
+
+  footer { padding: 8px 12px calc(12px + var(--safe-b)); display: flex; gap: 10px; align-items: flex-end;
+    background: linear-gradient(to top, rgba(7,0,13,.96) 60%, transparent); }
+  #input { flex: 1; resize: none; max-height: 120px; min-height: 48px; border-radius: 24px; padding: 13px 16px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--text); font: inherit; outline: none; }
+  #input:focus { border-color: var(--pri); }
+  #mic, #send { width: 56px; height: 56px; border-radius: 50%; border: 0; flex-shrink: 0; display: grid; place-items: center; }
+  #mic { background: linear-gradient(135deg, var(--acc2), var(--acc)); box-shadow: 0 6px 24px rgba(232,0,107,.45); }
+  #mic.listening { background: linear-gradient(135deg, #00d48e, #00a6ff); box-shadow: 0 0 0 0 rgba(0,255,170,.6);
+    animation: ring 1.2s infinite; }
+  @keyframes ring { to { box-shadow: 0 0 0 18px rgba(0,255,170,0); } }
+  #send { display: none; background: rgba(255,255,255,.08); border: 1px solid var(--line); }
+  body.typing-mode #send { display: grid; } body.typing-mode #mic { display: none; }
+  svg { pointer-events: none; }
+
+  #pair { position: fixed; inset: 0; z-index: 9; display: none; place-items: center; padding: 24px;
+    background: rgba(7,0,13,.97); text-align: center; }
+  #pair h1 { letter-spacing: .3em; font-size: 22px; margin: 18px 0 8px; }
+  #pair p { color: var(--dim); max-width: 340px; margin: 6px auto; }
+  #pair ol { text-align: left; color: var(--text); max-width: 330px; margin: 18px auto; padding-left: 20px; }
+  #pair li { margin: 8px 0; }
+  body.unpaired #pair { display: grid; }
+  #toast { position: fixed; left: 50%; bottom: calc(100px + var(--safe-b)); transform: translateX(-50%) translateY(20px);
+    background: #2a0047; border: 1px solid var(--line); padding: 9px 16px; border-radius: 99px; font-size: 13px;
+    opacity: 0; transition: .25s; pointer-events: none; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body class="unpaired">
+
+<header>
+  <div class="mark">BRINKO</div>
+  <button id="installBtn">Install app</button>
+  <div class="pill" id="status"><span class="dot"></span><span id="statusText">Connecting…</span></div>
+</header>
+
+<div id="stage"><canvas id="orb" width="300" height="300"></canvas></div>
+<div id="timers"></div>
+<div id="chat"></div>
+
+<footer>
+  <textarea id="input" rows="1" placeholder="Ask BRINKO anything…" enterkeyhint="send"></textarea>
+  <button id="send" aria-label="Send">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
+  <button id="mic" aria-label="Talk">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+  </button>
+</footer>
+
+<div id="pair">
+  <div>
+    <canvas id="pairOrb" width="240" height="240" style="width:120px;height:120px"></canvas>
+    <h1>BRINKO</h1>
+    <p>Connect this phone to BRINKO on your PC.</p>
+    <ol>
+      <li>On the PC, open BRINKO → <b>Settings</b> (gear, or Ctrl+,) → <b>Connect phone</b>.</li>
+      <li>Scan the QR code with this phone's camera.</li>
+      <li>In Chrome, tap ⋮ → <b>Install app</b> (or <b>Add to Home screen</b>).</li>
+    </ol>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+// ───────────────────────── state ─────────────────────────
+const $ = (s) => document.querySelector(s);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem("brink." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("brink." + k, JSON.stringify(v)); } catch {} },
+};
+let token = LS.get("token", "");
+let msgs = LS.get("history", []);
+let contacts = LS.get("contacts", {});        // "mom" -> {name, tel}
+let lastEvent = LS.get("lastEvent", 0);
+let kit = LS.get("kit", null);                 // offline kit: key, persona, memory, voice, tools
+let kitAt = 0;
+let pcOnline = false;
+let offlineQueue = LS.get("offlineQueue", { memories: [], conversation: [] });
+const GEM = "https://generativelanguage.googleapis.com/v1beta/models/";
+let orbState = "idle";                          // idle | listening | thinking | speaking
+let level = 0;
+
+// pairing: ?pair=TOKEN in the URL (from the QR code)
+(() => {
+  const u = new URL(location.href);
+  const p = u.searchParams.get("pair");
+  if (p) { token = p; LS.set("token", p); u.searchParams.delete("pair"); window.history.replaceState(null, "", u.pathname); }
+})();
+if (token) document.body.classList.remove("unpaired");
+
+// ───────────────────────── orb animation ─────────────────────────
+function drawOrb(canvas, getState) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+  let t = 0, last = performance.now(), rot = 0, energy = .3;
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now; t += dt;
+    const st = getState();
+    const target = { idle: .3, listening: .55, thinking: .75, speaking: 1 }[st] ?? .3;
+    energy += (target - energy) * Math.min(1, dt * 4);
+    rot += dt * (0.4 + energy * 1.6);
+    ctx.clearRect(0, 0, W, H);
+    const accent = st === "listening" ? "0,255,170" : "232,0,107";
+    const R = W * 0.25 * (1 + level * 0.08);
+    // glow
+    let g = ctx.createRadialGradient(cx, cy, R * .3, cx, cy, R * 2);
+    g.addColorStop(0, `rgba(${accent},${.25 + energy * .35})`); g.addColorStop(1, "rgba(153,0,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 2, 0, 7); ctx.fill();
+    // arcs
+    ctx.lineCap = "round";
+    for (const [rf, w, segs, span, sp, col] of [[1.55, 4, 3, 1.1, 1, accent], [1.75, 2, 6, .38, -.6, "153,0,255"]]) {
+      ctx.strokeStyle = `rgba(${col},${.35 + energy * .5})`; ctx.lineWidth = w;
+      for (let s = 0; s < segs; s++) {
+        const a = rot * sp + s * Math.PI * 2 / segs;
+        ctx.beginPath(); ctx.arc(cx, cy, R * rf, a, a + span); ctx.stroke();
+      }
+    }
+    // thinking comets
+    if (st === "thinking") for (let k = 0; k < 3; k++) for (let j = 0; j < 10; j++) {
+      const a = t * 2.8 + k * 2.094 - j * .09, f = 1 - j / 10;
+      ctx.fillStyle = `rgba(255,${j ? 68 : 232},${j ? 170 : 244},${f})`;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * R * 1.32, cy + Math.sin(a) * R * 1.32, 4.5 * f + .8, 0, 7); ctx.fill();
+    }
+    // liquid orb
+    const wob = .012 + level * .09 + (st === "speaking" ? .03 : 0);
+    ctx.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const th = i / 64 * Math.PI * 2;
+      const r = R * (1 + wob * (.55 * Math.sin(3 * th + t * 1.9) + .3 * Math.sin(5 * th - t * 2.7) + .25 * Math.sin(2 * th + t * 1.3)));
+      const x = cx + r * Math.cos(th), y = cy + r * Math.sin(th);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    g = ctx.createRadialGradient(cx - R * .32, cy - R * .38, R * .05, cx, cy, R * 1.5);
+    if (st === "listening") { g.addColorStop(0, "#b8ffe6"); g.addColorStop(.3, "#00d48e"); g.addColorStop(.75, "#00465a"); g.addColorStop(1, "#001a20"); }
+    else { g.addColorStop(0, "#ff9ad0"); g.addColorStop(.28, "#e8006b"); g.addColorStop(.72, "#3d0066"); g.addColorStop(1, "#12001f"); }
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1.5; ctx.stroke();
+    // highlight
+    g = ctx.createRadialGradient(cx - R * .35, cy - R * .45, 0, cx - R * .35, cy - R * .45, R * .55);
+    g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx - R * .35, cy - R * .45, R * .55, 0, 7); ctx.fill();
+    level *= .9;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+drawOrb($("#orb"), () => orbState);
+drawOrb($("#pairOrb"), () => "idle");
+
+// ───────────────────────── chat ─────────────────────────
+const chat = $("#chat");
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+function scroll() { requestAnimationFrame(() => chat.scrollTop = chat.scrollHeight); }
+function bubble(role, text, save = true) {
+  const d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "me" : role === "sys" ? "sys" : "bot");
+  d.innerHTML = role === "brinko" ? `<b class="tag">BRINKO</b>${esc(text)}` : esc(text);
+  chat.appendChild(d); scroll();
+  document.body.classList.add("chatting");
+  if (save && role !== "sys") { msgs.push({ role, text }); msgs = msgs.slice(-30); LS.set("history", msgs); }
+  return d;
+}
+function typing() {
+  const d = document.createElement("div"); d.className = "msg bot typing";
+  d.innerHTML = "<span></span><span></span><span></span>"; chat.appendChild(d); scroll(); return d;
+}
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove("show"), 2600); }
+for (const h of msgs.slice(-12)) bubble(h.role, h.text, false);
+if (!msgs.length && token) bubble("sys", "Tap the mic and talk, or type. I can do things on this phone and on your PC.", false);
+
+// ───────────────────────── API ─────────────────────────
+async function api(path, body, timeoutMs = 8000) {
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeoutMs);
+  const opt = body ? { method: "POST", headers: { "Content-Type": "application/json", "X-Brinko-Token": token }, body: JSON.stringify(body), signal: ctl.signal }
+                   : { headers: { "X-Brinko-Token": token }, signal: ctl.signal };
+  let r;
+  try { r = await fetch(path, opt); } finally { clearTimeout(tm); }
+  if (r.status === 401) { setStatus(false, "Not paired"); document.body.classList.add("unpaired"); throw new Error("unpaired"); }
+  return r.json();
+}
+function setStatus(mode, text) {           // mode: on | phone | off
+  const p = $("#status");
+  p.classList.toggle("on", mode === "on" || mode === true);
+  p.classList.toggle("phone", mode === "phone");
+  p.classList.toggle("off", mode === "off" || mode === false);
+  $("#statusText").textContent = text;
+}
+function offlineStatus() { pcOnline = false; setStatus(kit?.key ? "phone" : "off", kit?.key ? "Phone mode" : "PC offline"); }
+async function ping() {
+  if (!token) return;
+  try {
+    const r = await api("/api/ping", null, 5000);
+    pcOnline = true; setStatus("on", r.pc_ready ? "PC online" : "PC starting…");
+    if (!kit || Date.now() - kitAt > 10 * 60 * 1000) refreshKit();
+    syncOffline();
+  } catch (e) { if (e.message !== "unpaired") offlineStatus(); }
+}
+async function refreshKit() {
+  try { const k = await api("/api/kit"); if (k && k.key) { kit = k; kitAt = Date.now(); LS.set("kit", k); } } catch {}
+}
+async function syncOffline() {
+  if (!offlineQueue.memories.length && !offlineQueue.conversation.length) return;
+  try {
+    await api("/api/sync", offlineQueue);
+    offlineQueue = { memories: [], conversation: [] }; LS.set("offlineQueue", offlineQueue);
+    toast("Phone-mode memories synced to your PC");
+  } catch {}
+}
+
+let busy = false;
+async function ask(text) {
+  text = text.trim(); if (!text || busy) return;
+  busy = true; orbState = "thinking";
+  const sentAt = Date.now();
+  bubble("user", text);
+  const dots = typing();
+  try {
+    let r;
+    if (pcOnline || !kit?.key) {
+      try { r = await api("/api/ask", { text, history: msgs.slice(-12, -1) }, 150000); }
+      catch (e) {
+        if (e.message === "unpaired" || !kit?.key) throw e;
+        offlineStatus();
+        r = await offlineAsk(text);
+      }
+    } else {
+      r = await offlineAsk(text);
+    }
+    dots.remove();
+    bubble("brinko", r.reply || "Done.");
+    speak(r.reply || "");
+    const quick = Date.now() - sentAt < 4500;      // still counts as the user's tap → may auto-open
+    for (const a of r.actions || []) await handleAction(a, quick);
+  } catch (e) {
+    dots.remove();
+    bubble("sys", e.message === "unpaired" ? "This phone isn't paired anymore — scan the QR code again."
+      : navigator.onLine ? "Can't reach your PC or Google right now — try again in a moment." : "This phone is offline.");
+    orbState = "idle";
+  } finally { busy = false; if (orbState === "thinking") orbState = "idle"; }
+}
+
+// ───────────────────────── phone actions ─────────────────────────
+function key(name) { return String(name || "").toLowerCase().trim(); }
+function intlNumber(tel) {
+  let n = String(tel || "").replace(/[^\d+]/g, "");
+  if (n.startsWith("00")) n = "+" + n.slice(2);
+  if (n.startsWith("0")) n = "+49" + n.slice(1);           // local German numbers
+  return n;
+}
+async function pickContact(name) {
+  if ("contacts" in navigator && navigator.contacts.select) {
+    try {
+      const res = await navigator.contacts.select(["name", "tel"], { multiple: false });
+      if (res && res[0] && res[0].tel && res[0].tel[0]) {
+        const c = { name: (res[0].name && res[0].name[0]) || name, tel: res[0].tel[0] };
+        contacts[key(name)] = c; LS.set("contacts", contacts); toast(`Saved ${name} → ${c.name}`); return c;
+      }
+    } catch {}
+  }
+  const tel = prompt(`Phone number for ${name}?`);
+  if (!tel) return null;
+  const c = { name, tel }; contacts[key(name)] = c; LS.set("contacts", contacts); return c;
+}
+function card(kind, html, buttons) {
+  const d = document.createElement("div"); d.className = "card";
+  d.innerHTML = `<div class="k">${esc(kind)}</div>${html}<div class="row"></div>`;
+  const row = d.querySelector(".row");
+  for (const [label, fn, ghost] of buttons) {
+    const b = document.createElement("button"); b.className = "btn" + (ghost ? " ghost" : ""); b.textContent = label;
+    b.onclick = fn; row.appendChild(b);
+  }
+  chat.appendChild(d); scroll(); return d;
+}
+function go(url, fallback) {
+  const before = Date.now();
+  location.href = url;
+  if (fallback) setTimeout(() => { if (Date.now() - before < 2500 && document.visibilityState === "visible") location.href = fallback; }, 1600);
+}
+async function withContact(a, fn) {
+  if (a.number) return fn({ name: a.contact, tel: a.number });
+  const c = contacts[key(a.contact)];
+  if (c) return fn(c);
+  const draft = a.text ? `<div class="quote">${esc(a.text)}</div>` : "";
+  card("WHO IS " + String(a.contact).toUpperCase() + "?", `${draft}<div class="v">Pick ${esc(a.contact)} once from your contacts — I'll remember.</div>`,
+    [[`Choose ${a.contact}`, async () => { const c = await pickContact(a.contact); if (c) fn(c); }]]);
+}
+async function handleAction(a, quick) {
+  if (a.type === "call") {
+    return withContact(a, (c) => {
+      const url = "tel:" + intlNumber(c.tel);
+      card("CALL", `<div class="v">${esc(c.name)} · ${esc(c.tel)}</div>`, [["📞 Call " + c.name, () => go(url)]]);
+      if (quick) go(url);
+    });
+  }
+  if (a.type === "text") {
+    return withContact(a, (c) => {
+      const num = intlNumber(c.tel);
+      const wa = `https://wa.me/${num.replace("+", "")}?text=${encodeURIComponent(a.text)}`;
+      const sms = `sms:${num}?body=${encodeURIComponent(a.text)}`;
+      const primary = a.app === "sms" ? ["💬 Send SMS", () => go(sms)] : ["🟢 Open WhatsApp", () => go(wa)];
+      const other = a.app === "sms" ? ["WhatsApp instead", () => go(wa), true] : ["SMS instead", () => go(sms), true];
+      card((a.app === "sms" ? "SMS" : "WHATSAPP") + " → " + c.name.toUpperCase(),
+        `<div class="quote">${esc(a.text)}</div>`, [primary, other, ["📋 Copy", () => { navigator.clipboard?.writeText(a.text); toast("Copied"); }, true]]);
+    });
+  }
+  if (a.type === "email") {
+    const url = `mailto:${encodeURIComponent(a.to || "")}?subject=${encodeURIComponent(a.subject || "")}&body=${encodeURIComponent(a.body || "")}`;
+    card("EMAIL" + (a.to ? " → " + a.to : ""), `<div class="v"><b>${esc(a.subject || "")}</b></div><div class="quote">${esc(a.body || "")}</div>`,
+      [["✉️ Open in Gmail", () => go(url)], ["📋 Copy", () => { navigator.clipboard?.writeText(a.body || ""); toast("Copied"); }, true]]);
+    return;
+  }
+  if (a.type === "open") {
+    card(a.label ? a.label.toUpperCase() : "OPEN", "", [["Open ↗", () => go(a.url, a.fallback)]]);
+    if (quick) go(a.url, a.fallback);
+    return;
+  }
+  if (a.type === "timer") return startTimer(a.seconds, a.label);
+}
+
+// ───────────────────────── timers ─────────────────────────
+const timers = [];
+function startTimer(seconds, label) {
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  const t = { end: Date.now() + seconds * 1000, label: label || "Timer", el: document.createElement("div") };
+  t.el.className = "timer";
+  t.el.innerHTML = `⏱ <span></span> <button aria-label="cancel">✕</button>`;
+  t.el.querySelector("button").onclick = () => { t.done = true; t.el.remove(); };
+  $("#timers").appendChild(t.el); timers.push(t);
+}
+setInterval(() => {
+  for (const t of timers) {
+    if (t.done) continue;
+    const left = Math.max(0, Math.round((t.end - Date.now()) / 1000));
+    t.el.querySelector("span").textContent = `${t.label} ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    if (left === 0) { t.done = true; t.el.remove(); ring(t.label + " is done!"); }
+  }
+}, 250);
+function ring(text) {
+  bubble("brinko", "⏰ " + text); speak(text); navigator.vibrate?.([300, 150, 300, 150, 600]);
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [0, .35, .7].forEach((d) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880;
+      o.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(.25, ac.currentTime + d);
+      g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + d + .3); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + .3); });
+  } catch {}
+  notify("BRINKO", text);
+}
+async function notify(title, body) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const reg = await navigator.serviceWorker?.getRegistration();
+  if (reg) reg.showNotification(title, { body, icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", vibrate: [200, 100, 200] });
+}
+
+// ───────────────────────── voice: speech in, speech out ─────────────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, finalText = "", lang = LS.get("lang", navigator.language?.startsWith("de") ? "de-DE" : "en-US");
+let audioCtx = null, playHead = 0, speakGen = 0;
+const sources = [];
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+document.addEventListener("pointerdown", () => ac(), { once: true });   // unlock audio on first tap
+function stopSpeaking() {
+  speakGen++;
+  try { speechSynthesis.cancel(); } catch {}
+  for (const src of sources.splice(0)) { try { src.stop(); } catch {} }
+  if (audioCtx) playHead = audioCtx.currentTime;
+  if (orbState === "speaking") orbState = "idle";
+}
+async function speak(text) {
+  if (!text || !LS.get("voice", true)) return;
+  stopSpeaking();
+  const gen = speakGen;
+  if (kit?.key) { try { await brinkoVoice(text, gen); return; } catch (e) { console.warn("BRINKO voice failed, using phone voice", e); } }
+  if (gen === speakGen) fallbackSpeak(text);
+}
+async function brinkoVoice(text, gen) {
+  const clean = text.replace(/[*_#`]/g, "").replace(/^[✓✗⏰]\s*/, "").slice(0, 900);
+  let lastErr;
+  for (const model of kit.tts_models || ["gemini-3.8-flash-tts"]) {
+    try {
+      const r = await fetch(GEM + model + ":streamGenerateContent?alt=sse", {
+        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": kit.key },
+        body: JSON.stringify({ contents: [{ parts: [{ text: clean }] }],
+          generationConfig: { responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: kit.voice || "Sulafat" } } } } }) });
+      if (!r.ok) throw new Error("tts " + r.status);
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = "", got = false;
+      playHead = Math.max(playHead, ac().currentTime + 0.05);
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (gen !== speakGen) { reader.cancel(); return; }
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith("data:")) continue;
+          let d; try { d = JSON.parse(line.slice(5)); } catch { continue; }
+          for (const p of d.candidates?.[0]?.content?.parts || []) if (p.inlineData?.data) { playPcm(p.inlineData.data); got = true; }
+        }
+      }
+      if (got) return;
+      throw new Error("no audio");
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+function playPcm(b64) {
+  const ctx = ac(), bin = atob(b64), n = bin.length >> 1, f = new Float32Array(n);
+  for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; f[i] = v / 32768; }
+  const b = ctx.createBuffer(1, n, 24000); b.copyToChannel(f, 0);
+  const src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination);
+  const at = Math.max(playHead, ctx.currentTime + 0.03); src.start(at); playHead = at + b.duration; sources.push(src);
+  let rms = 0; for (let i = 0; i < n; i += 40) rms += f[i] * f[i]; rms = Math.sqrt(rms / Math.max(1, n / 40));
+  setTimeout(() => { orbState = "speaking"; level = Math.min(1, rms * 4); }, Math.max(0, (at - ctx.currentTime) * 1000));
+  src.onended = () => { const k = sources.indexOf(src); if (k >= 0) sources.splice(k, 1); if (!sources.length && orbState === "speaking") orbState = "idle"; };
+}
+function fallbackSpeak(text) {
+  if (!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, ""));
+  const german = /[äöüß]|\b(ich|und|nicht|ist|der|die|das|du|Sie)\b/i.test(text);
+  u.lang = german ? "de-DE" : "en-US"; u.rate = 1.05;
+  const v = speechSynthesis.getVoices().find((v) => v.lang === u.lang && /google/i.test(v.name)) || speechSynthesis.getVoices().find((v) => v.lang === u.lang);
+  if (v) u.voice = v;
+  u.onstart = () => { orbState = "speaking"; };
+  u.onboundary = () => { level = .9; };
+  u.onend = () => { if (orbState === "speaking") orbState = "idle"; };
+  speechSynthesis.speak(u);
+}
+
+// ───────────────────────── phone-only brain (PC off) ─────────────────────────
+async function gem(model, body) {
+  const r = await fetch(GEM + model + ":generateContent", { method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": kit.key }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error("gemini " + r.status);
+  return r.json();
+}
+async function gemAny(body) {
+  let last;
+  for (const m of kit.chat_models || ["gemini-3.1-flash-lite"]) { try { return await gem(m, body); } catch (e) { last = e; } }
+  throw last;
+}
+function gemText(res) { return (res.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim(); }
+function intentUrl(pkg, scheme) {
+  if (scheme) return scheme;
+  const fb = encodeURIComponent("https://play.google.com/store/apps/details?id=" + pkg);
+  return `intent://#Intent;package=${pkg};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${fb};end`;
+}
+async function composeOffline(kind, args) {
+  const isText = kind === "text";
+  const prompt = `${kit.memory || ""}\n` + (isText
+    ? `Write a ${args.app || "WhatsApp"} message.\nTo: ${args.contact || ""}\nWhat the user wants to say: ${args.intent || ""}\n${kit.writer_rules}- It's a TEXT: short (usually 1–3 sentences), casual, no subject, no sign-off. Emoji only if it fits, max one or two.\nReturn ONLY JSON: {"text": "..."}`
+    : `Write an email.\nRecipient: ${args.to || "not specified"}\nWhat the user wants: ${args.request || ""}\n${kit.writer_rules}- Fitting greeting and sign-off; subject short and specific.\nReturn ONLY JSON: {"subject": "...", "body": "..."}`);
+  const res = await gemAny({ contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 3000 } });
+  const raw = gemText(res);
+  try { return JSON.parse(raw); } catch { return isText ? { text: raw } : { subject: "", body: raw }; }
+}
+async function offlineTool(name, a, actions) {
+  if (name === "phone_call") { actions.push({ type: "call", contact: a.contact || "", number: a.number || "" }); return `Calling ${a.contact}.`; }
+  if (name === "phone_text") {
+    const app = (a.app || "whatsapp").toLowerCase();
+    const text = a.exact_text || (await composeOffline("text", { ...a, app })).text || "";
+    actions.push({ type: "text", contact: a.contact || "", number: a.number || "", app, text });
+    return `Prepared for ${a.contact}: "${text}" — the user taps send.`;
+  }
+  if (name === "phone_email") {
+    const m = await composeOffline("email", a);
+    actions.push({ type: "email", to: String(a.to || "").includes("@") ? a.to : "", subject: m.subject || "", body: m.body || "" });
+    return `Email ready. Subject: ${m.subject || ""}`;
+  }
+  if (name === "phone_navigate") {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.destination || "")}&travelmode=${encodeURIComponent(a.mode || "driving")}&dir_action=navigate`;
+    actions.push({ type: "open", url, label: "Navigate to " + a.destination }); return "Opening navigation.";
+  }
+  if (name === "phone_play") {
+    const q = a.query || "", app = (a.app || "spotify").toLowerCase();
+    const url = app.includes("youtube") && app.includes("music") ? `https://music.youtube.com/search?q=${encodeURIComponent(q)}`
+      : app.includes("youtube") ? `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` : `spotify:search:${encodeURIComponent(q)}`;
+    actions.push({ type: "open", url, fallback: `https://open.spotify.com/search/${encodeURIComponent(q)}`, label: "Play " + q }); return "Playing on the phone.";
+  }
+  if (name === "phone_open_app") {
+    const known = (kit.apps || {})[String(a.app_name || "").toLowerCase()];
+    const pkg = known ? known[1] : a.android_package, scheme = known ? known[0] : "";
+    if (!pkg && !scheme) { actions.push({ type: "open", url: `https://play.google.com/store/search?q=${encodeURIComponent(a.app_name || "")}&c=apps`, label: "Find " + a.app_name }); return "Opened the Play Store search."; }
+    actions.push({ type: "open", url: intentUrl(pkg, scheme), label: "Open " + a.app_name }); return "Opening it.";
+  }
+  if (name === "phone_open_url") {
+    actions.push({ type: "open", url: a.url || `https://www.google.com/search?q=${encodeURIComponent(a.query || "")}`, label: "Open link" }); return "Opened.";
+  }
+  if (name === "phone_timer") { actions.push({ type: "timer", seconds: +a.seconds || 0, label: a.label || "" }); return "Timer started."; }
+  if (name === "phone_alarm") { actions.push({ type: "open", url: intentUrl("com.google.android.deskclock"), label: "Set alarm " + a.time }); return "Opened the Clock app to confirm the alarm."; }
+  if (name === "save_memory") {
+    offlineQueue.memories.push({ category: a.category, key: a.key, value: a.value }); LS.set("offlineQueue", offlineQueue);
+    kit.memory = (kit.memory || "") + `\n${a.category}/${a.key}: ${a.value}`; LS.set("kit", kit);
+    return "saved";
+  }
+  return "That needs your PC, and it seems to be off.";
+}
+async function offlineAsk(text) {
+  const sys = `${kit.persona}\n\n[RIGHT NOW] The user is on their Android phone and their PC is OFF or unreachable — you're in PHONE-ONLY MODE. Phone tools work (calls, texts, email, maps, music, apps, timers). Anything that needs the PC (PC apps, PC files, PC email inbox, coding, downloads): say their PC seems to be off and offer what you can do from the phone. No live web search right now: answer from what you know, say when something may be out of date, and offer to open a Google search (phone_open_url).\nReplies are spoken in your voice: 1–3 short sentences, plain text, user's language.\n[NOW] ${new Date().toLocaleString()}\n${kit.memory || ""}`;
+  const contents = msgs.slice(-12, -1).map((h) => ({ role: h.role === "user" ? "user" : "model", parts: [{ text: String(h.text) }] }));
+  contents.push({ role: "user", parts: [{ text }] });
+  const actions = [];
+  for (let step = 0; step < 5; step++) {
+    const res = await gemAny({ systemInstruction: { parts: [{ text: sys }] }, contents,
+      tools: [{ functionDeclarations: kit.tools }], generationConfig: { temperature: 0.5, maxOutputTokens: 1200 } });
+    const content = res.candidates?.[0]?.content;
+    if (!content) break;
+    const calls = (content.parts || []).filter((p) => p.functionCall);
+    if (!calls.length) {
+      const reply = gemText(res) || "Done.";
+      offlineQueue.conversation.push(`User (on phone, PC off): ${text}`, `BRINKO (phone mode): ${reply}`);
+      offlineQueue.conversation = offlineQueue.conversation.slice(-24); LS.set("offlineQueue", offlineQueue);
+      return { reply, actions };
+    }
+    contents.push(content);                          // keep it verbatim (Gemini thought signatures)
+    const parts = [];
+    for (const p of calls) {
+      let result;
+      try { result = await offlineTool(p.functionCall.name, p.functionCall.args || {}, actions); } catch (e) { result = "failed: " + e.message; }
+      parts.push({ functionResponse: { name: p.functionCall.name, response: { result: String(result) } } });
+    }
+    contents.push({ role: "user", parts });
+  }
+  return { reply: actions.length ? "Done." : "Hmm, say that another way?", actions };
+}
+
+function listen() {
+  if (!SR) { toast("Voice needs Chrome over https — type instead"); $("#input").focus(); return; }
+  if (rec) { rec.stop(); return; }
+  stopSpeaking();
+  rec = new SR(); rec.lang = lang; rec.interimResults = true; rec.continuous = false;
+  finalText = ""; orbState = "listening"; $("#mic").classList.add("listening");
+  const live = bubble("user", "…", false); live.style.opacity = ".6";
+  rec.onresult = (e) => {
+    let interim = ""; finalText = "";
+    for (const r of e.results) (r.isFinal ? (finalText += r[0].transcript) : (interim += r[0].transcript));
+    live.textContent = finalText + interim; level = 1;
+  };
+  rec.onerror = (e) => { if (e.error === "not-allowed") toast("Allow the microphone for BRINKO"); };
+  rec.onend = () => {
+    $("#mic").classList.remove("listening"); rec = null; live.remove();
+    if (orbState === "listening") orbState = "idle";
+    if (finalText.trim()) ask(finalText);
+  };
+  rec.start();
+}
+$("#mic").onclick = listen;
+$("#mic").oncontextmenu = (e) => { e.preventDefault(); lang = lang === "en-US" ? "de-DE" : "en-US"; LS.set("lang", lang); toast("Listening in " + (lang === "de-DE" ? "German" : "English")); };
+
+// ───────────────────────── input ─────────────────────────
+const input = $("#input");
+input.addEventListener("input", () => {
+  input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px";
+  document.body.classList.toggle("typing-mode", !!input.value.trim());
+});
+input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#send").click(); } });
+$("#send").onclick = () => { const t = input.value; input.value = ""; input.dispatchEvent(new Event("input")); ask(t); };
+
+// ───────────────────────── PC job results ─────────────────────────
+async function poll() {
+  if (!token || document.visibilityState === "hidden" && !timers.some((t) => !t.done)) return;
+  try {
+    const r = await api("/api/events?since=" + lastEvent);
+    for (const e of r.events || []) {
+      lastEvent = Math.max(lastEvent, e.id); LS.set("lastEvent", lastEvent);
+      if (e.type === "job") { bubble("brinko", e.text); if (document.visibilityState === "hidden") notify("BRINKO", e.text); else speak(e.text.replace(/^[✓✗]\s*/, "")); }
+      else if (e.type === "say") bubble("sys", e.text);
+    }
+  } catch {}
+}
+setInterval(poll, 4000);
+setInterval(ping, 15000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { ping(); poll(); } });
+
+// ───────────────────────── install + offline ─────────────────────────
+let deferred = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; $("#installBtn").style.display = "block"; });
+$("#installBtn").onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $("#installBtn").style.display = "none"; };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+window.addEventListener("online", ping);
+window.addEventListener("offline", () => setStatus("off", "Phone offline"));
+if (kit?.key && token) setStatus("phone", "Connecting…");
+ping();
+if (token) api("/api/events?since=" + lastEvent).then((r) => { for (const e of r.events || []) lastEvent = Math.max(lastEvent, e.id); LS.set("lastEvent", lastEvent); }).catch(() => {});
+</script>
+</body>
+</html>

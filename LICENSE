@@ -1,0 +1,15 @@
+BRINKO
+Licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+https://creativecommons.org/licenses/by-nc/4.0/
+
+You may share and adapt this project for NON-COMMERCIAL purposes, as long as you give appropriate credit,
+link to the license and indicate if changes were made. You may not use it for commercial purposes.
+
+Credit: BRINKO is built on MARK XXV, a JARVIS-style Python voice assistant from the open-source
+"Jarvis Mark" series by FatihMakes (https://www.youtube.com/@FatihMakes), released under CC BY-NC 4.0.
+BRINKO adds the Gemini 3.x live voice, the blue star HUD, camera mode, the phone app, document builder,
+memory, and many other changes.
+
+Bundled third-party files keep their own licenses:
+  - MediaPipe Tasks Vision (fx/vendor, fx/models): Apache License 2.0, Google LLC
+  - Vosk small English model (models/vosk-model-small-en-us-0.15): Apache License 2.0, Alpha Cephei Inc.

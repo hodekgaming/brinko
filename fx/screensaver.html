@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BRINKO screensaver</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; transition: opacity 2.2s ease; }
+  #gl { image-rendering: auto; }
+  #clock { position: fixed; right: 4vw; bottom: 5vh; color: rgba(255,232,244,.55); text-align: right;
+    font: 300 64px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: .04em; pointer-events: none;
+    text-shadow: 0 0 30px rgba(232,0,107,.35); transition: opacity 1s; }
+  #clock small { display: block; font-size: 15px; letter-spacing: .35em; margin-top: 10px; color: rgba(255,170,204,.45); }
+  #hint { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); color: rgba(255,255,255,.28);
+    font: 13px "Segoe UI", sans-serif; letter-spacing: .2em; transition: opacity 1.5s; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="cursors"></canvas>
+<div id="clock"></div>
+<div id="hint">PRESS ANY KEY OR CLICK TO EXIT</div>
+<script>
+"use strict";
+const params = new URLSearchParams(location.search);
+let mode = params.get("mode") || "auto";            // auto | blackhole | cursors
+const glCanvas = document.getElementById("gl");
+const cv = document.getElementById("cursors");
+let W = innerWidth, H = innerHeight;
+
+// ───────────── exit ─────────────
+const born = performance.now();
+function quit() { if (performance.now() - born > 800) window.close(); }
+addEventListener("keydown", quit);
+addEventListener("mousedown", quit);
+setTimeout(() => document.getElementById("hint").style.opacity = 0, 4000);
+
+// ───────────── clock ─────────────
+function tick() {
+  const d = new Date();
+  document.getElementById("clock").innerHTML =
+    d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+    `<small>${d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}</small>`;
+}
+tick(); setInterval(tick, 1000);
+
+// ───────────── BLACK HOLE (WebGL, curved-light ray tracing) ─────────────
+const gl = glCanvas.getContext("webgl", { antialias: false, alpha: false });
+const RENDER_SCALE = 0.62;   // trace fewer rays, upscale — looks the same, much faster
+const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+const FRAG = `
+precision highp float;
+uniform vec2 res; uniform float t;
+
+float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.03; a*=.5; } return v; }
+
+vec3 stars(vec3 d){
+  vec3 col = vec3(0.);
+  for (int l = 0; l < 2; l++) {               // two layers: many dim + few bright
+    float K = l == 0 ? 260. : 110.;
+    vec3 p = d * K, g = floor(p), f = fract(p) - .5;
+    float h = hash(g.xy + g.z * 17.13);
+    float s = step(l == 0 ? .975 : .992, h) * smoothstep(.32, .0, length(f));
+    col += s * mix(vec3(1., .85, .7), vec3(.7, .82, 1.), hash(g.yz + 3.1)) * (l == 0 ? .7 : 1.4);
+  }
+  vec2 q = vec2(atan(d.z, d.x), d.y) * 2.;
+  col += vec3(.32, .1, .38) * fbm(q + 3.) * .07 + vec3(.1, .15, .35) * fbm(q * 1.7 + 9.) * .05;
+  return col;
+}
+
+vec3 diskColor(float r){            // white-hot inside → orange → deep red outside
+  float x = clamp((r - 2.4) / 6.5, 0., 1.);
+  vec3 hot = vec3(1.0, .95, .85), mid = vec3(1.0, .55, .18), cold = vec3(.55, .1, .03);
+  return x < .35 ? mix(hot, mid, x / .35) : mix(mid, cold, (x - .35) / .65);
+}
+
+void main(){
+  vec2 uv = (gl_FragCoord.xy - .5 * res) / res.y;
+  float ang = t * .025;
+  vec3 cam = vec3(sin(ang) * 24., 2.1 + .5 * sin(t * .05), -cos(ang) * 24.);
+  vec3 fwd = normalize(-cam), right = normalize(cross(vec3(0,1,0), fwd)), up = cross(fwd, right);
+  vec3 dir = normalize(fwd * 1.7 + uv.x * right + uv.y * up);
+
+  vec3 pos = cam, vel = dir;
+  vec3 c = cross(pos, vel); float h2 = dot(c, c);
+  vec3 col = vec3(0.); float alpha = 0.;
+  bool hole = false;
+  for (int i = 0; i < 260; i++) {
+    float r2 = dot(pos, pos), r = sqrt(r2);
+    if (r < 1.0) { hole = true; break; }
+    float dt = clamp(.05 * r, .025, .9);
+    vec3 acc = -1.5 * h2 * pos / pow(r2, 2.5);
+    float py = pos.y;
+    vel += acc * dt; pos += vel * dt;
+    if (py * pos.y < 0.) {                       // crossed the disk plane
+      vec3 p = pos - vel * dt * (pos.y / (pos.y - py + 1e-6));
+      float rr = length(p.xz);
+      if (rr > 2.3 && rr < 9.5) {
+        float a = atan(p.z, p.x);
+        float spin = t * 1.6 / pow(rr, 1.5);
+        float swirl = fbm(vec2(rr * 2.4, (a + spin) * 3.2)) * .75 + fbm(vec2(rr * 8., (a + spin * 1.3) * 10.)) * .5;
+        swirl = pow(swirl, 1.8) * 1.6;                 // more contrast → visible streaks
+        float edge = smoothstep(2.3, 2.8, rr) * smoothstep(9.5, 6.5, rr);
+        float dop = 1. + .65 * dot(normalize(vec3(-p.z, 0., p.x)), -normalize(vel));   // side spinning toward us is brighter
+        float dens = edge * (.12 + swirl) * dop;
+        vec3 dc = diskColor(rr) * dens * 1.05;
+        float da = clamp(dens * .7, 0., 1.);
+        col += dc * da * (1. - alpha); alpha += da * (1. - alpha);
+        if (alpha > .97) break;
+      }
+    }
+    if (r > 60.) break;
+  }
+  vec3 bg = hole ? vec3(0.) : stars(normalize(vel));
+  col += bg * (1. - alpha);
+  // photon-ring glow
+  col += vec3(1., .75, .45) * .0;
+  col = 1. - exp(-col * .95);                    // tonemap
+  col = pow(col, vec3(.92));
+  float vig = smoothstep(1.25, .25, length(uv));
+  gl_FragColor = vec4(col * vig, 1.);
+}`;
+let prog, uRes, uT;
+function initGL() {
+  if (!gl) return false;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  uRes = gl.getUniformLocation(prog, "res"); uT = gl.getUniformLocation(prog, "t");
+  return true;
+}
+let glOK = false;
+try { glOK = initGL(); } catch (e) { console.error(e); }
+function drawBlackHole(t) {
+  if (!glOK) return;
+  const w = Math.floor(W * RENDER_SCALE), h = Math.floor(H * RENDER_SCALE);
+  if (glCanvas.width !== w || glCanvas.height !== h) { glCanvas.width = w; glCanvas.height = h; gl.viewport(0, 0, w, h); }
+  gl.uniform2f(uRes, w, h); gl.uniform1f(uT, t);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// ───────────── CURSOR SWARM (boids) ─────────────
+const ctx = cv.getContext("2d");
+const COLORS = ["#ff2d95", "#b14dff", "#00e5ff", "#00ff9c", "#ffe14d", "#ff7a1a", "#4d7cff", "#ff4d4d", "#ffffff"];
+const N = Math.min(360, Math.round(W * H / 6500));
+const boids = [];
+for (let i = 0; i < N; i++) {
+  const a = Math.random() * Math.PI * 2;
+  boids.push({ x: Math.random() * W, y: Math.random() * H, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2,
+               c: COLORS[i % COLORS.length], s: 1.15 + Math.random() * 0.7 });
+}
+const mouse = { x: -9999, y: -9999, t: 0 };
+addEventListener("mousemove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.t = performance.now(); });
+// classic arrow-pointer shape (tip at 0,0, pointing up-left like a mouse cursor, then rotated)
+const ARROW = new Path2D("M0,0 L0,17 L4.2,13 L7.4,20 L10.2,18.8 L7.1,12 L12.5,12 Z");
+function stepBoids(t, dt) {
+  const cell = 70, grid = new Map();
+  for (const b of boids) { const k = ((b.x / cell) | 0) + "," + ((b.y / cell) | 0); (grid.get(k) || grid.set(k, []).get(k)).push(b); }
+  // a slowly wandering "leader" point the flock loosely follows
+  const wx = W * (0.5 + 0.36 * Math.sin(t * 0.13) * Math.cos(t * 0.07));
+  const wy = H * (0.5 + 0.33 * Math.sin(t * 0.17 + 1.3));
+  for (const b of boids) {
+    let sx = 0, sy = 0, ax = 0, ay = 0, cx = 0, cy = 0, n = 0;
+    const gx = (b.x / cell) | 0, gy = (b.y / cell) | 0;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      const list = grid.get((gx + i) + "," + (gy + j)); if (!list) continue;
+      for (const o of list) {
+        if (o === b) continue;
+        const dx = o.x - b.x, dy = o.y - b.y, d2 = dx * dx + dy * dy;
+        if (d2 > 4900) continue;
+        n++; ax += o.vx; ay += o.vy; cx += o.x; cy += o.y;
+        if (d2 < 420) { const d = Math.sqrt(d2) + .01; sx -= dx / d; sy -= dy / d; }
+      }
+    }
+    if (n) { b.vx += (ax / n - b.vx) * 0.07 + (cx / n - b.x) * 0.0035; b.vy += (ay / n - b.vy) * 0.07 + (cy / n - b.y) * 0.0035; }
+    b.vx += sx * 0.3 + (wx - b.x) * 0.00022; b.vy += sy * 0.3 + (wy - b.y) * 0.00022;
+    const mdx = b.x - mouse.x, mdy = b.y - mouse.y, md2 = mdx * mdx + mdy * mdy;
+    if (md2 < 160 * 160) { const md = Math.sqrt(md2) + 1, f = (160 - md) / 160 * 1.6; b.vx += mdx / md * f; b.vy += mdy / md * f; }
+    const sp = Math.hypot(b.vx, b.vy), max = 4.2, min = 1.6;
+    if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; } else if (sp < min) { b.vx *= min / sp; b.vy *= min / sp; }
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.x < -30) b.x = W + 30; if (b.x > W + 30) b.x = -30; if (b.y < -30) b.y = H + 30; if (b.y > H + 30) b.y = -30;
+  }
+}
+function drawCursors() {
+  ctx.fillStyle = "rgba(4,0,10,0.5)";               // short motion trails
+  ctx.fillRect(0, 0, W, H);
+  ctx.lineWidth = 1.2; ctx.lineJoin = "round";
+  for (const b of boids) {
+    const a = Math.atan2(b.vy, b.vx) + Math.PI * 0.75;   // arrow tip leads the movement
+    ctx.setTransform(b.s, 0, 0, b.s, b.x, b.y); ctx.rotate(a);
+    ctx.shadowColor = b.c; ctx.shadowBlur = 6;
+    ctx.fillStyle = b.c; ctx.fill(ARROW);
+    ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.1 / b.s; ctx.stroke(ARROW);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ───────────── loop / modes ─────────────
+function resize() { W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; }
+resize(); addEventListener("resize", resize);
+let current = mode === "auto" ? "cursors" : mode, switchedAt = 0;
+function show(which) {
+  current = which;
+  glCanvas.style.opacity = which === "blackhole" ? 1 : 0;
+  cv.style.opacity = which === "cursors" ? 1 : 0;
+}
+show(current);
+let last = performance.now();
+function frame(now) {
+  const t = now / 1000, dt = Math.min(2.5, (now - last) / 16.67); last = now;
+  if (mode === "auto" && t - switchedAt > 45) { switchedAt = t; show(current === "cursors" ? "blackhole" : "cursors"); }
+  if (current === "blackhole" || glCanvas.style.opacity !== "0") drawBlackHole(t);
+  if (current === "cursors") { stepBoids(t, dt); drawCursors(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

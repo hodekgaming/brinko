@@ -1,0 +1,24 @@
+# ── private: never commit ──────────────────────────────────────────
+# API keys, mailbox login, phone pairing token, browser profiles
+config/*.json
+config/webdata/
+config/*.onnx
+# what BRINKO remembers about its owner
+memory/journal/
+memory/activity/
+memory/*.json
+# logs, caches
+logs/
+*.log
+__pycache__/
+*.pyc
+.brinko_backup/
+
+# AI-made character pictures (hidden character mode; made on each PC)
+fx/characters/
+
+# local tooling
+.claude/settings.local.json
+.venv/
+venv/
+*.tmp

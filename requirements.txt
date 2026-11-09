@@ -1,0 +1,57 @@
+# Core
+PyQt6==6.11.0
+sounddevice
+google-genai>=2.11
+requests
+pillow
+gradio_client
+flask
+openwakeword
+
+# Web / browser
+beautifulsoup4
+ddgs
+duckduckgo-search
+playwright
+
+# Automation / input control
+pyautogui
+pyperclip
+pygetwindow
+opencv-python
+numpy
+mss
+psutil
+send2trash
+
+# File processing (used by actions/file_processor.py)
+pandas
+openpyxl
+pdfplumber
+python-docx
+python-pptx
+pydub
+
+# YouTube
+youtube-transcript-api
+
+# Audio (Windows wheel is easiest; on macOS/Linux you may need portaudio
+# installed first via your system package manager, e.g. `brew install portaudio`
+# or `apt install portaudio19-dev`, before this will build)
+pyaudio
+
+# --- NOT included here (Windows-only, installed separately by setup.py): ---
+#   pycaw, comtypes, win10toast, pywinauto
+#   These fail to install on macOS/Linux, so setup.py installs them
+#   conditionally based on detected OS instead of listing them here.
+#
+# --- Also required, but NOT a pip package: ---
+#   ffmpeg must be installed as a system binary (not pip-installable)
+#   for audio/video features in actions/file_processor.py to work.
+
+# Phone app pairing QR code
+qrcode[pil]
+
+# Visual effects: screensaver, camera powers, document builder
+PyQt6-WebEngine==6.11.0
+vosk

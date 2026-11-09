@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BRINKO · building</title>
+<style>
+  :root { --accent: #2f5d8a; --bp: #7fb8d6; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #070012; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; }
+  #grid { position: fixed; inset: 0; opacity: 0; transition: opacity 1.2s;
+    background-image: linear-gradient(rgba(58,215,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(58,215,255,.09) 1px, transparent 1px),
+                      linear-gradient(rgba(58,215,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(58,215,255,.04) 1px, transparent 1px);
+    background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px; }
+  body.bp #grid { opacity: 1; }
+  #hud { position: fixed; left: 22px; top: 18px; z-index: 50; color: #ffe8f4; display: flex; gap: 12px; align-items: center; }
+  #hud b { letter-spacing: .35em; font-size: 14px; }
+  #phase { font: 600 11px/1 "Cascadia Mono", Consolas, monospace; letter-spacing: .14em; color: var(--bp);
+    padding: 6px 10px; border: 1px solid rgba(58,215,255,.35); border-radius: 99px; background: rgba(0,20,30,.55); }
+  #bar { position: fixed; left: 0; top: 0; height: 3px; width: 0; background: linear-gradient(90deg, var(--bp), var(--accent)); z-index: 60; transition: width .4s; }
+  #stage { position: fixed; inset: 0; overflow-y: auto; scroll-behavior: smooth; padding: 70px 0 120px; scrollbar-width: none; }
+  #stage::-webkit-scrollbar { display: none; }
+
+  /* the page */
+  .paper { position: relative; width: 794px; min-height: 1123px; margin: 0 auto; background: #fff; color: #1d1626;
+    padding: 72px 76px 80px; transform-origin: top center; transition: box-shadow 1s, background 1s; }
+  body.bp .paper { background: rgba(10,30,45,.35); box-shadow: 0 0 0 1px rgba(58,215,255,.55); }
+  body.bp.live .paper, body.live .paper { background: #fff; box-shadow: 0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); }
+  .paper .k { opacity: 0; transition: opacity .35s; }
+  .paper .k.show { opacity: 1; }
+  .paper { font-family: Calibri, "Aptos", "Segoe UI", Carlito, sans-serif; }
+  .doc-title { font: 700 30px/1.2 Calibri, "Aptos", "Segoe UI", sans-serif; margin: 0 0 6px; color: #1f1f1f; }
+  .doc-sub { font-size: 16px; color: #595959; margin: 0 0 4px; }
+  .doc-meta { font-size: 13px; color: #7f7f7f; margin-bottom: 18px; }
+  .rule { height: 1px; width: 0; background: var(--accent); opacity: .55; margin: 0 0 22px; transition: width .6s ease; }
+  .rule.show { width: 100%; }
+  h2 { font: 700 18px/1.3 Calibri, "Aptos", "Segoe UI", sans-serif; margin: 22px 0 8px; color: var(--accent); }
+  p { font-size: 14.6px; line-height: 1.55; margin: 0 0 10px; color: #262626; }
+  ul, ol { margin: 0 0 12px; padding-left: 24px; font-size: 14.6px; line-height: 1.5; color: #262626; }
+  li { margin: 2px 0; }
+  blockquote { margin: 6px 0 14px 4px; padding: 2px 0 2px 14px; border-left: 3px solid #bfbfbf; font-style: italic; color: #404040; }
+  .callout { margin: 6px 0 14px; padding: 10px 14px; background: #f2f2f2; border-left: 3px solid var(--accent); font-size: 14px; color: #262626; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 16px; font-size: 13.5px; }
+  th { text-align: left; background: #f2f2f2; color: #1f1f1f; padding: 6px 8px; font-weight: 700; border: 1px solid #d0d0d0; }
+  td { padding: 6px 8px; border: 1px solid #d9d9d9; color: #262626; }
+  .footer { display: none; }
+
+  /* wipe reveal for paragraphs */
+  .wipe { clip-path: inset(0 100% 0 0); }
+  .wipe.show { clip-path: inset(0 0 0 0); transition: clip-path .35s cubic-bezier(.3,.7,.2,1), opacity .2s; }
+
+  /* blueprint wireframe boxes */
+  .wire { position: absolute; border: 1px dashed rgba(127,184,214,.7); border-radius: 2px; background: rgba(127,184,214,.06);
+    opacity: 0; transform: scale(.96); transition: opacity .3s, transform .3s, border-color .4s; pointer-events: none; }
+  .wire.show { opacity: 1; transform: none; }
+  .wire.done { opacity: 0; transition: opacity .6s; }
+  .wire i { position: absolute; left: -1px; top: -18px; font: 700 9.5px/1 "Cascadia Mono", Consolas, monospace; letter-spacing: .12em;
+    color: #001820; background: var(--bp); padding: 3px 5px; border-radius: 3px 3px 0 0; font-style: normal; }
+  .outline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .outline rect { fill: none; stroke: var(--bp); stroke-width: 2; stroke-dasharray: 4000; stroke-dashoffset: 4000; transition: stroke-dashoffset 1.6s ease; }
+  body.bp .outline rect { stroke-dashoffset: 0; }
+  body.live .outline { opacity: 0; transition: opacity .8s; }
+  .dim { position: absolute; font: 600 10px/1 "Cascadia Mono", Consolas, monospace; color: var(--bp); opacity: 0; transition: opacity .8s .8s; }
+  body.bp .dim { opacity: .9; } body.live .dim { opacity: 0; transition-delay: 0s; }
+
+  /* flying cursors */
+  .cur { position: fixed; left: 0; top: 0; z-index: 40; width: 22px; height: 28px; pointer-events: none;
+    will-change: transform; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+  .cur span { position: absolute; left: 16px; top: 18px; font: 700 10px/1 "Segoe UI", sans-serif; color: #fff; background: var(--c);
+    padding: 3px 6px; border-radius: 6px 6px 6px 2px; white-space: nowrap; }
+
+  #done { position: fixed; left: 50%; bottom: 34px; transform: translate(-50%, 30px); opacity: 0; z-index: 70;
+    padding: 12px 20px; border-radius: 14px; color: #fff; font-weight: 700; letter-spacing: .02em;
+    background: linear-gradient(135deg, #ff44aa, #9900ff); box-shadow: 0 10px 40px rgba(232,0,107,.45); transition: .5s cubic-bezier(.2,.9,.3,1.3); }
+  #done.show { opacity: 1; transform: translate(-50%, 0); }
+  .typing::after { content: "▍"; color: var(--accent); animation: blink .6s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  @media print {
+    @page { size: A4; margin: 0; }
+    html, body { background: #fff !important; overflow: visible !important; height: auto; }
+    #grid, #hud, #bar, .cur, #done, .wire, .outline, .dim { display: none !important; }
+    #stage { position: static; overflow: visible; padding: 0; }
+    .paper { width: auto; min-height: 0; margin: 0; box-shadow: none !important; background: #fff !important; padding: 18mm 18mm 20mm; transform: none !important; }
+    .paper .k, .wipe { opacity: 1 !important; clip-path: none !important; }
+    .footer { position: fixed; bottom: 8mm; left: 18mm; right: 18mm; }
+    h2 { break-after: avoid; } table, blockquote, .callout { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<div id="bar"></div>
+<div id="hud"><b>BRINKO</b><span id="phase">PLANNING DOCUMENT…</span></div>
+<div id="stage"><div class="paper" id="paper">
+  <svg class="outline" preserveAspectRatio="none"><rect x="1" y="1" width="99.7%" height="99.8%" rx="2"/></svg>
+  <div class="dim" style="left:6px;top:-16px">794 px · A4</div>
+  <div class="dim" style="right:-46px;top:50%">1123</div>
+</div></div>
+<div id="done"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const paper = $("#paper"), stage = $("#stage");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+
+// fit the A4 page to the window
+function fit() { const s = Math.min(1, (innerWidth - 80) / 794); paper.style.transform = `scale(${s})`; paper.style.marginBottom = `${-(1 - s) * paper.offsetHeight}px`; }
+addEventListener("resize", fit); fit();
+
+// ── cursors ──
+const CUR = ["#e8467c", "#3b9ed8", "#e8b13b", "#45b07c", "#8a63d2"];
+const motion = new Map();           // cursor element -> spring state
+const cursors = CUR.map((c, i) => {
+  const el = document.createElement("div"); el.className = "cur"; el.style.setProperty("--c", c);
+  el.innerHTML = `<svg width="20" height="26" viewBox="0 0 22 28"><path d="M2 2 L2 23 L8 17 L12 26 L16 24.5 L12 15.5 L20 15.5 Z" fill="${c}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+  document.body.appendChild(el); move(el, Math.random() * innerWidth, innerHeight + 40, 0); return el;
+});
+// Smooth cursor motion: every cursor follows its target with a critically
+// damped spring (no overshoot, no speed jumps when a new target comes in
+// mid-flight), tilts slightly with its speed, and drifts on a slow organic
+// path while idle. One rAF loop drives all of them.
+function move(el, x, y, ms = 550) {
+  let m = motion.get(el);
+  if (!m) { m = { x, y, vx: 0, vy: 0, tx: x, ty: y, st: .2, rot: 0 }; motion.set(el, m); }
+  m.tx = x; m.ty = y; m.st = Math.max(.07, ms / 1000 * .32);        // smooth time: arrives in about ms
+  if (ms <= 0) { m.x = x; m.y = y; m.vx = m.vy = 0; }
+}
+let wander = true, lastT = performance.now();
+const seeds = CUR.map(() => [Math.random() * 100, .13 + Math.random() * .1, .17 + Math.random() * .1]);
+function damp(cur, target, vel, st, dt) {               // SmoothDamp (critically damped spring)
+  const w = 2 / st, x = w * dt, e = 1 / (1 + x + .48 * x * x + .235 * x * x * x);
+  const ch = cur - target, tmp = (vel + w * ch) * dt;
+  return [target + (ch + tmp) * e, (vel - w * tmp) * e];
+}
+(function tick(now) {
+  const dt = Math.min(.025, (now - lastT) / 1000); lastT = now;   // after a slow frame: catch up gently, never jump
+  if (wander) {                                         // idle: slow figure-eight drift over the page
+    const r = paper.getBoundingClientRect(), t = now / 1000;
+    cursors.forEach((c, i) => {
+      const [ph, a, b] = seeds[i];
+      const x = r.left + r.width * (.5 + .38 * Math.sin(t * a + ph) * Math.cos(t * a * .37 + ph * 2));
+      const y = r.top + 90 + Math.min(innerHeight - 200, r.height * .45) * (.5 + .45 * Math.sin(t * b + ph * 3));
+      move(c, x, y, 900);
+    });
+  }
+  if (dt > 0) for (const [el, m] of motion) {
+    // spring gives the wanted velocity; then cap acceleration and top speed so a
+    // far jump becomes a quick glide instead of a teleport
+    const [, wvx] = damp(m.x, m.tx, m.vx, m.st, dt), [, wvy] = damp(m.y, m.ty, m.vy, m.st, dt);
+    let ax = (wvx - m.vx) / dt, ay = (wvy - m.vy) / dt; const am = Math.hypot(ax, ay), AMAX = 16000;
+    if (am > AMAX) { ax *= AMAX / am; ay *= AMAX / am; }
+    m.vx += ax * dt; m.vy += ay * dt;
+    const sp = Math.hypot(m.vx, m.vy), VMAX = 2200;
+    if (sp > VMAX) { m.vx *= VMAX / sp; m.vy *= VMAX / sp; }
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    m.rot += (Math.max(-10, Math.min(10, m.vx * .012)) - m.rot) * Math.min(1, dt * 10);
+    el.style.transform = `translate3d(${m.x.toFixed(1)}px, ${m.y.toFixed(1)}px, 0) rotate(${m.rot.toFixed(2)}deg)`;
+  }
+  requestAnimationFrame(tick);
+})(lastT);
+setTimeout(() => document.body.classList.add("bp"), 150);
+
+// ── build ──
+function blocksFromDoc(doc) {
+  const out = [];
+  out.push({ tag: "h1", cls: "doc-title k", html: esc(doc.title || "Document"), label: "H1 · TITLE", type: true });
+  if (doc.subtitle) out.push({ tag: "p", cls: "doc-sub k", html: md(doc.subtitle), label: "SUBTITLE" });
+  out.push({ tag: "div", cls: "doc-meta k", html: esc([doc.author, doc.date].filter(Boolean).join(", ")), label: "META" });
+  out.push({ tag: "div", cls: "rule", html: "", label: "ACCENT" });
+  (doc.sections || []).forEach((s, si) => {
+    if (s.heading) out.push({ tag: "h2", cls: "k", html: esc(s.heading), label: "H2", type: true, typeText: s.heading });
+    for (const b of s.blocks || []) {
+      if (b.type === "bullets" || b.type === "numbered") {
+        const tag = b.type === "bullets" ? "ul" : "ol";
+        out.push({ tag, cls: "k wipe", html: (b.items || []).map((x) => `<li>${md(x)}</li>`).join(""), label: b.type === "bullets" ? "LIST" : "STEPS" });
+      } else if (b.type === "table" && (b.rows || []).length) {
+        const [head, ...rows] = b.rows;
+        out.push({ tag: "table", cls: "k wipe", html: `<thead><tr>${head.map((h) => `<th>${md(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${md(c)}</td>`).join("")}</tr>`).join("")}</tbody>`, label: "TABLE" });
+      } else if (b.type === "quote") {
+        out.push({ tag: "blockquote", cls: "k wipe", html: md(b.text), label: "QUOTE" });
+      } else if (b.type === "callout") {
+        out.push({ tag: "div", cls: "callout k wipe", html: md(b.text), label: "CALLOUT" });
+      } else {
+        out.push({ tag: "p", cls: "k wipe", html: md(b.text), label: "TEXT" });
+      }
+    }
+  });
+  return out;
+}
+
+async function build(doc) {
+  wander = false;
+  if (doc.accent) document.documentElement.style.setProperty("--accent", doc.accent);
+  const blocks = blocksFromDoc(doc);
+  $("#phase").textContent = "WIREFRAMING";
+  // 1) lay out the real elements invisibly, then draw blueprint boxes where they will go
+  const els = blocks.map((b) => { const e = document.createElement(b.tag); e.className = b.cls; e.innerHTML = b.html; paper.appendChild(e); return e; });
+  const footer = document.createElement("div"); footer.className = "footer k";
+  paper.appendChild(footer);
+  paper.style.minHeight = Math.max(1123, paper.scrollHeight + 40) + "px";
+  fit();
+  const scale = paper.getBoundingClientRect().width / 794;
+  const wires = els.map((e, i) => {
+    const w = document.createElement("div"); w.className = "wire";
+    w.style.left = e.offsetLeft - 4 + "px"; w.style.top = e.offsetTop - 3 + "px";
+    w.style.width = (e.classList.contains("rule") ? 120 : e.offsetWidth) + 8 + "px"; w.style.height = Math.max(8, e.offsetHeight) + 6 + "px";
+    w.innerHTML = `<i>${blocks[i].label}</i>`; paper.appendChild(w); return w;
+  });
+  const total = els.length;
+  const step = Math.max(18, Math.min(70, 1000 / total));
+  for (let i = 0; i < total; i++) {
+    const c = cursors[i % cursors.length], r = els[i].getBoundingClientRect();
+    if (r.top > innerHeight - 120) stage.scrollTop += r.top - innerHeight * .45;
+    const r2 = els[i].getBoundingClientRect();
+    move(c, r2.left + 4, r2.top + 2, 260);
+    wires[i].classList.add("show");
+    $("#bar").style.width = (i / total) * 35 + "%";
+    await sleep(step);
+  }
+  stage.scrollTop = 0; await sleep(200);
+
+  // 2) fill everything in: titles type themselves, text wipes in
+  $("#phase").textContent = "BUILDING";
+  document.body.classList.add("live");
+  const fillStep = Math.max(30, Math.min(160, 2800 / total));
+  for (let i = 0; i < total; i++) {
+    const e = els[i], b = blocks[i], c = cursors[i % cursors.length];
+    const r = e.getBoundingClientRect();
+    if (r.bottom > innerHeight - 90) stage.scrollTop += r.bottom - innerHeight * .6;
+    const r2 = e.getBoundingClientRect();
+    move(c, r2.right - 10, r2.top + Math.min(r2.height, 30), 220);
+    wires[i].classList.add("done");
+    if (b.type) {                                          // typewriter for headings
+      const full = e.innerHTML, text = b.typeText || e.textContent;
+      const num = e.querySelector(".n") ? e.querySelector(".n").outerHTML : "";
+      e.classList.add("show", "typing"); e.innerHTML = num;
+      const per = Math.max(5, Math.min(16, 320 / text.length));
+      for (let k = 1; k <= text.length; k++) { e.innerHTML = num + esc(text.slice(0, k)); if (k % 3 === 0) await sleep(per * 3); }
+      e.innerHTML = full; e.classList.remove("typing");
+    } else if (e.classList.contains("rule")) {
+      e.classList.add("show");
+    } else {
+      e.classList.add("show");
+    }
+    $("#bar").style.width = 35 + (i / total) * 65 + "%";
+    await sleep(fillStep);
+  }
+  footer.classList.add("show");
+  $("#bar").style.width = "100%";
+  $("#phase").textContent = "FINISHING";
+  cursors.forEach((c, i) => move(c, innerWidth / 2 + (i - 2) * 40, innerHeight + 60, 600));
+  await sleep(250);
+  stage.scrollTop = 0;
+  document.body.classList.remove("bp");
+  await sleep(450);
+  document.title = "BRINKO:BUILT";                          // → Python prints the PDF now
+}
+
+window.brinkoDone = (msg) => { const d = $("#done"); d.textContent = msg; d.classList.add("show"); $("#phase").textContent = "SAVED"; };
+window.brinkoError = (msg) => { $("#phase").textContent = "ERROR"; const d = $("#done"); d.textContent = msg; d.style.background = "#5a0018"; d.classList.add("show"); };
+window.brinkoBuild = (json) => build(typeof json === "string" ? JSON.parse(json) : json);
+document.title = "BRINKO:READY";
+</script>
+</body>
+</html>
