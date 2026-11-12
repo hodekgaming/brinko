@@ -1084,7 +1084,7 @@ class BrinkoLive:
         self.ui.on_text_command = self._on_text_command
 
         # Voice focus: standby while other apps play sound, so YouTube/Spotify
-        # speech can't talk to BRINKO. Ctrl+Alt+B / orb tap / wake word opens it.
+        # speech can't talk to BRINKO. Ctrl+Alt+B or an orb tap opens it.
         from actions.voice_focus import get_voice_focus, HOTKEY_LABEL
         self.focus = get_voice_focus(self.ui)
         self._hotkey_label = HOTKEY_LABEL
@@ -1184,7 +1184,7 @@ class BrinkoLive:
         threading.Thread(target=go, daemon=True, name="VoiceSwitch").start()
 
     def interrupt(self):
-        """Stop talking NOW (wake word / orb tap while BRINKO speaks): drop queued audio and the
+        """Stop talking NOW (orb tap / Ctrl+Alt+B while BRINKO speaks): drop queued audio and the
         rest of this answer, open the mic right away."""
         self._drop_audio = True
         q = getattr(self, "audio_in_queue", None)
@@ -1724,7 +1724,7 @@ class BrinkoLive:
         _chunks_sent = [0]
 
         # While in standby, keep the last ~1.5s of mic audio. When BRINKO wakes
-        # ("Hey Jarvis, open Spotify" said in one breath), that pre-roll is sent
+        # (the first words after Ctrl+Alt+B / an orb tap), that pre-roll is sent
         # first so the words right after the wake phrase aren't lost.
         from collections import deque
         _preroll   = deque(maxlen=int(1.5 * SEND_SAMPLE_RATE / CHUNK_SIZE) + 1)
@@ -1997,11 +1997,6 @@ class BrinkoLive:
                                     return
                                 time.sleep(0.6)
                         threading.Thread(target=_greet_when_ready, daemon=True).start()
-                        try:
-                            from actions.wake_word import start_wake_word_listener
-                            self._wake_thread = start_wake_word_listener(self.ui, brinko_instance=self)
-                        except Exception as e:
-                            print(f"[BRINKO] ⚠️ Wake word setup failed: {e}")
 
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())

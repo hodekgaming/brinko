@@ -240,7 +240,7 @@ _STATE_STYLE = {
     "THINKING":     ("Thinking",    C.WHITE),
     "PROCESSING":   ("Working",     C.WHITE),
     "MUTED":        ("Mic off",     C.MUTED_C),
-    "STANDBY":      ("Standby · say “Hey Jarvis”", C.ULTRA_B),
+    "STANDBY":      ("Standby · Ctrl+Alt+B to talk", C.ULTRA_B),
     "INITIALISING": ("Starting up", C.PRI),
 }
 
@@ -1999,7 +1999,7 @@ class ChatOverlay(QFrame):
             lay.addWidget(lbl)
             self._lines.append(lbl)
 
-        self._placeholder = "Say <b>“Hey Jarvis”</b> or type below — I can keep working in the background while you do your thing."
+        self._placeholder = "Just talk (press <b>Ctrl+Alt+B</b> while music plays) or type below — I can keep working in the background while you do your thing."
         self._lines[-1].setText(f"<span style='color: rgba(200,240,255,0.45)'>{self._placeholder}</span>")
 
         lay.addStretch(1)

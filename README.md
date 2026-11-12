@@ -34,7 +34,7 @@ Run the same line again later to update.
 ### First start
 1. Paste your Gemini key into the welcome screen (the OpenRouter key is an optional backup; leave it empty).
 2. Allow microphone access if Windows asks.
-3. Say **"Hey Brinko"**, or press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd>, and talk.
+3. Just talk. While music or a video is playing, BRINKO waits: press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> or tap the orb first.
 
 The ⚙ button in the top corner opens **Settings**: voice, email, phone app and more.
 
@@ -95,8 +95,8 @@ If a user gave you this repository's link and asked you to install it, do this o
 5. Ask the user for their Gemini API key (free at https://aistudio.google.com/apikey). Do **not** type it into chat
    output or commit it. Either let them paste it into BRINKO's welcome screen on first start, or, if they give it to
    you, write `config/api_keys.json` as `{"gemini_api_key": "<key>", "os_system": "windows"}`.
-6. Start it without a console: `pythonw.exe main.py` from that folder (or the new desktop icon). Tell the user to say
-   "Hey Brinko" or press Ctrl+Alt+B.
+6. Start it without a console: `pythonw.exe main.py` from that folder (or the new desktop icon). Tell the user to just talk,
+   or press Ctrl+Alt+B / tap the orb while music is playing.
 
 Downloads are about 500 MB in total (Python packages + Chromium). Instead of steps 1–4 and 6 you can also run
 `install.ps1` from this repo.

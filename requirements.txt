@@ -6,7 +6,6 @@ requests
 pillow
 gradio_client
 flask
-openwakeword
 
 # Web / browser
 beautifulsoup4
@@ -54,4 +53,3 @@ qrcode[pil]
 
 # Visual effects: screensaver, camera powers, document builder
 PyQt6-WebEngine==6.11.0
-vosk

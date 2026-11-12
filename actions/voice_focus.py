@@ -9,7 +9,7 @@
 #   • Nothing else playing  → hands-free: the mic streams to Gemini as usual.
 #   • Another app playing   → STANDBY: mic audio is NOT sent, so video/music
 #                             speech can't trigger BRINKO.
-#   • You activate BRINKO (Ctrl+Alt+B anywhere, tap the orb, or the wake word)
+#   • You activate BRINKO (Ctrl+Alt+B anywhere or tap the orb)
 #                           → other apps are turned down to ~15% ("ducked"),
 #                             the mic opens, and you talk normally. While you
 #                             or BRINKO keep talking it stays open; after a few
