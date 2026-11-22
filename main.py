@@ -1032,11 +1032,20 @@ TOOL_DECLARATIONS = [
             "long_session_minutes": {"type": "INTEGER", "description": "minutes in one app before a break nudge"}}}
     },
     {
+        "name": "waitlist",
+        "description": (
+            "The user's FormProof waitlist: total signups, today, last 7 days and the newest people "
+            "(email, platform/source). Use for 'how many people are on the waitlist', 'any new signups', "
+            "'who joined the waitlist'. New signups are also announced automatically."
+        ),
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
         "name": "social_stats",
         "description": (
             "The user's OWN Instagram, YouTube and TikTok numbers (followers / subscribers, likes, posts, "
-            "videos) plus growth since the last check, 24 h and 7 days. Use for 'how many followers do I have', "
-            "'check my socials', 'how's my TikTok doing', 'did my YouTube grow'. Takes ~7 s: say you're "
+            "videos, VIEWS on the latest videos/reels with likes and comments) plus growth since the last check, 24 h and 7 days. Use for 'how many followers do I have', "
+            "'check my socials', 'how's my TikTok doing', 'did my YouTube grow'. Takes ~15-20 s: say you're "
             "checking first. If no accounts are saved, ask for the usernames and save each with action=set."
         ),
         "parameters": {"type": "OBJECT", "properties": {
@@ -1132,6 +1141,11 @@ class BrinkoLive:
             self.proactive.start()
         except Exception as e:
             print(f"[BRINKO] ⚠️ proactive: {e}")
+        try:
+            from actions import waitlist as _wl
+            _wl.start_watcher(self, self.ui)
+        except Exception as e:
+            print(f"[BRINKO] ⚠️ waitlist watcher: {e}")
         try:
             from actions import whatsapp_web
             whatsapp_web.start_scheduler(
@@ -1422,6 +1436,9 @@ class BrinkoLive:
             return daily_briefing(args)
         if name == "set_voice":
             return self.set_voice(str(args.get("voice") or ""))
+        if name == "waitlist":
+            from actions.waitlist import waitlist
+            return waitlist(args)
         if name == "social_stats":
             from actions.social_stats import social_stats
             return social_stats(args)

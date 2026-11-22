@@ -90,6 +90,20 @@ def _browser_pages(jobs: dict) -> dict:
                         if not subs:
                             raise RuntimeError(f"no YouTube channel @{h}")
                         out[plat] = {"subscribers": _num(subs.group(1)), "videos": _num(vids.group(1)) if vids else None}
+                        try:
+                            pg.goto(url + "/videos", wait_until="domcontentloaded", timeout=30000)
+                            pg.locator("ytd-rich-item-renderer").first.wait_for(timeout=10000)
+                            rec = []
+                            for t in pg.locator("ytd-rich-item-renderer").all_inner_texts()[:8]:
+                                ln = [x.strip() for x in t.split("\n") if x.strip()]
+                                ln = [x for x in ln if not re.fullmatch(r"[\d:]+|LIVE|SHORTS", x)]
+                                v = next((x for x in ln if re.fullmatch(r"[\d.,]+[KMB]?( views)?", x)), None)
+                                age = next((x for x in ln if re.search(r"ago$", x)), "")
+                                if ln and v:
+                                    rec.append({"title": ln[0][:70], "views": _num(v), "age": age})
+                            out[plat]["recent"] = rec
+                        except Exception:
+                            pass
                     else:
                         pg.goto(f"https://www.instagram.com/{h}/", wait_until="domcontentloaded", timeout=30000)
                         pg.wait_for_timeout(2500)
@@ -99,6 +113,22 @@ def _browser_pages(jobs: dict) -> dict:
                             raise RuntimeError(f"Instagram didn't show @{h} (private, wrong name or rate-limited)")
                         out[plat] = {"followers": _num(meta.group(1)), "following": _num(meta.group(2)),
                                      "posts": _num(meta.group(3))}
+                        try:
+                            pg.goto(f"https://www.instagram.com/{h}/reels/", wait_until="networkidle", timeout=30000)
+                            html, rec, seen = pg.content(), [], set()
+                            for m in re.finditer(r'"play_count":(\d+)', html):
+                                seg = html[max(0, m.start() - 2500):m.start()]
+                                code = (re.findall(r'"code":"([\w-]+)"', seg) or [""])[-1]
+                                key = (code, m.group(1))
+                                if key in seen:
+                                    continue
+                                seen.add(key)
+                                rec.append({"title": f"reel {code}" if code else "reel", "views": int(m.group(1)), "age": ""})
+                                if len(rec) >= 8:
+                                    break
+                            out[plat]["recent"] = rec
+                        except Exception:
+                            pass
                 except Exception as e:
                     out[plat] = {"error": str(e)[:160]}
                 finally:
@@ -108,16 +138,70 @@ def _browser_pages(jobs: dict) -> dict:
     return out
 
 
+def _tiktok_views(handle: str) -> list:
+    """TikTok refuses its video list to hidden browsers, so a real Chrome/Edge window is opened
+    OFF-SCREEN for a few seconds and the page's own item_list responses are read."""
+    from playwright.sync_api import sync_playwright
+    items = []
+    with sync_playwright() as p:
+        b = None
+        for ch in ("chrome", "msedge"):
+            try:
+                b = p.chromium.launch(channel=ch, headless=False, args=[
+                    "--window-position=-2400,0", "--window-size=1100,900",
+                    "--disable-blink-features=AutomationControlled"])
+                break
+            except Exception:
+                continue
+        if b is None:
+            return []
+        try:
+            ctx = b.new_context(locale="en-US")
+            resp = []
+            ctx.on("response", lambda r: resp.append(r) if "item_list" in r.url else None)
+            pg = ctx.new_page()
+            pg.goto(f"https://www.tiktok.com/@{handle}", wait_until="domcontentloaded", timeout=30000)
+            for _ in range(16):
+                pg.wait_for_timeout(500)
+                if any(r.status == 200 for r in resp) and len(resp) >= 1 and _ > 6:
+                    break
+            for r in resp:
+                try:
+                    for it in r.json().get("itemList") or []:
+                        st = it.get("stats") or {}
+                        items.append({"title": (it.get("desc") or "video")[:70], "views": _num(st.get("playCount")),
+                                      "likes": _num(st.get("diggCount")), "comments": _num(st.get("commentCount")),
+                                      "t": it.get("createTime")})
+                except Exception:
+                    pass
+        finally:
+            b.close()
+    seen, out = set(), []
+    for it in sorted(items, key=lambda x: -(int(x["t"] or 0))):
+        k = (it["title"], it["t"])
+        if k not in seen:
+            seen.add(k)
+            ago = ""
+            if it["t"]:
+                d = (time.time() - int(it["t"])) / 86400
+                ago = f"{int(d)}d ago" if d >= 1 else f"{int(d * 24)}h ago"
+            out.append({"title": it["title"], "views": it["views"], "likes": it["likes"],
+                        "comments": it["comments"], "age": ago})
+    return out[:8]
+
+
 def fetch(handles: dict) -> dict:
     res = {}
     browser_jobs = {p: h for p, h in handles.items() if p in ("instagram", "youtube") and h}
-    with ThreadPoolExecutor(2) as ex:
+    with ThreadPoolExecutor(3) as ex:
         fb = ex.submit(_browser_pages, browser_jobs) if browser_jobs else None
+        ft = ex.submit(_tiktok_views, handles["tiktok"]) if handles.get("tiktok") else None
         if handles.get("tiktok"):
             try:
                 res["tiktok"] = _tiktok(handles["tiktok"])
+                res["tiktok"]["recent"] = ft.result(timeout=60)
             except Exception as e:
-                res["tiktok"] = {"error": str(e)[:160]}
+                res.setdefault("tiktok", {"error": str(e)[:160]})
         if fb:
             try:
                 res.update(fb.result(timeout=90))
@@ -157,7 +241,7 @@ def check(platform: str = "all") -> str:
     with _lock:
         hist = _load(HIST, [])
         prev_all = list(hist)
-        ok = {p: s for p, s in stats.items() if "error" not in s}
+        ok = {p: {k: v for k, v in s.items() if k != "recent"} for p, s in stats.items() if "error" not in s}
         if ok:
             hist.append({"t": time.time(), "date": datetime.now().isoformat(timespec="minutes"), "stats": ok})
             _save(HIST, hist[-2000:])
@@ -170,7 +254,8 @@ def check(platform: str = "all") -> str:
         if "error" in s:
             lines.append(f"{name} @{want[plat]}: couldn't read it ({s['error']})")
             continue
-        parts = [f"{k} {_fmt(v)}" for k, v in s.items() if v is not None]
+        rec = s.get("recent") or []
+        parts = [f"{k} {_fmt(v)}" for k, v in s.items() if v is not None and k != "recent"]
         main = "subscribers" if plat == "youtube" else "followers"
         growth = []
         for label, secs in (("since the last check", 60), ("in 24 h", 20 * 3600), ("in 7 days", 6.5 * 86400)):
@@ -181,8 +266,15 @@ def check(platform: str = "all") -> str:
                 if g not in growth:
                     growth.append(g)
         lines.append(f"{name} @{want[plat]}: " + ", ".join(parts) + (f" ({'; '.join(growth)})" if growth else ""))
-    note = ("\n(Public numbers only. Instagram/YouTube round big counts, e.g. 12.4K. Views/reach per post "
-            "need the apps' own analytics.)")
+        if rec:
+            vs = [r["views"] for r in rec if r.get("views") is not None]
+            lines.append(f"  latest {len(rec)} {'videos' if plat != 'instagram' else 'reels'}: "
+                         f"{_fmt(sum(vs))} views total, avg {_fmt(sum(vs) // max(1, len(vs)))}")
+            for r in rec[:5]:
+                extra = "".join(f", {_fmt(r[k])} {k}" for k in ("likes", "comments") if r.get(k) is not None)
+                lines.append(f"   - {r['title']}: {_fmt(r['views'])} views{extra}{(' (' + r['age'] + ')') if r.get('age') else ''}")
+    note = ("\n(Public numbers. Instagram/YouTube round big counts. Reach, watch time and profile visits "
+            "are only in the apps' private analytics.)")
     return "\n".join(lines) + note
 
 
