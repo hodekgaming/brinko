@@ -1032,6 +1032,22 @@ TOOL_DECLARATIONS = [
             "long_session_minutes": {"type": "INTEGER", "description": "minutes in one app before a break nudge"}}}
     },
     {
+        "name": "social_stats",
+        "description": (
+            "The user's OWN Instagram, YouTube and TikTok numbers (followers / subscribers, likes, posts, "
+            "videos) plus growth since the last check, 24 h and 7 days. Use for 'how many followers do I have', "
+            "'check my socials', 'how's my TikTok doing', 'did my YouTube grow'. Takes ~7 s: say you're "
+            "checking first. If no accounts are saved, ask for the usernames and save each with action=set."
+        ),
+        "parameters": {"type": "OBJECT", "properties": {
+            "action": {"type": "STRING", "description": "check (default) | set | accounts"},
+            "platform": {"type": "STRING", "description": "all (default) | instagram | youtube | tiktok"},
+            "handle": {"type": "STRING", "description": "for action=set with one platform: the username or link"},
+            "instagram": {"type": "STRING", "description": "action=set: Instagram username (set several at once)"},
+            "youtube": {"type": "STRING", "description": "action=set: YouTube handle"},
+            "tiktok": {"type": "STRING", "description": "action=set: TikTok username"}}}
+    },
+    {
         "name": "whatsapp_setup",
         "description": (
             "Background WhatsApp (WhatsApp Web, hidden browser). action=setup opens a window with the QR "
@@ -1406,6 +1422,9 @@ class BrinkoLive:
             return daily_briefing(args)
         if name == "set_voice":
             return self.set_voice(str(args.get("voice") or ""))
+        if name == "social_stats":
+            from actions.social_stats import social_stats
+            return social_stats(args)
         if name == "proactive_settings":
             from actions.proactive import proactive_settings
             return proactive_settings(args)

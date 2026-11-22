@@ -26,6 +26,10 @@ PROJECT_DIR = Path(__file__).resolve().parent
 MAIN_PY     = PROJECT_DIR / "main.py"
 APP_NAME    = "BRINKO"
 _OS         = platform.system()
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 
 def _windows_install():

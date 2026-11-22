@@ -53,6 +53,7 @@ The ⚙ button in the top corner opens **Settings**: voice, email, phone app and
 | 🧠 **Memory** | Remembers your name, people, projects and preferences (stored only on your PC) |
 | 🪄 **Camera mode** | Say "camera mode": hold both hands up, thumb and index finger spread, and the space between your fingertips becomes a window into another look (Spider-Verse, Anime, Comic, Synthwave, Hologram, Thermal). Pull your hands wide to fill the screen. |
 | 🌌 **Screensaver** | A real-time black hole |
+| 📊 **Your socials** | "How many followers do I have?": Instagram, YouTube and TikTok numbers and growth (public stats, no logins) |
 | 📱 **Phone app** | Settings → Connect phone: talk to BRINKO from your Android phone |
 
 ---
