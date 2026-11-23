@@ -53,3 +53,11 @@ qrcode[pil]
 
 # Visual effects: screensaver, camera powers, document builder
 PyQt6-WebEngine==6.11.0
+
+# Reading new message notifications (WhatsApp etc.) — Windows only
+winrt-runtime; sys_platform == 'win32'
+winrt-Windows.UI.Notifications.Management; sys_platform == 'win32'
+winrt-Windows.UI.Notifications; sys_platform == 'win32'
+winrt-Windows.Foundation; sys_platform == 'win32'
+winrt-Windows.Foundation.Collections; sys_platform == 'win32'
+winrt-Windows.ApplicationModel; sys_platform == 'win32'

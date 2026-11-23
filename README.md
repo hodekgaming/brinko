@@ -54,6 +54,7 @@ The ⚙ button in the top corner opens **Settings**: voice, email, phone app and
 | 🪄 **Camera mode** | Say "camera mode": hold both hands up, thumb and index finger spread, and the space between your fingertips becomes a window into another look (Spider-Verse, Anime, Comic, Synthwave, Hologram, Thermal). Pull your hands wide to fill the screen. |
 | 🌌 **Screensaver** | A real-time black hole |
 | 📊 **Your socials** | "How many followers do I have?": Instagram, YouTube and TikTok followers, growth and views on your latest posts (public stats, no logins) |
+| 💬 **Messages & email** | Reads new WhatsApp / Telegram / Instagram / SMS messages and new emails out loud as they arrive; several mailboxes; a catch-up of what you missed + an inbox window at startup |
 | 📱 **Phone app** | Settings → Connect phone: talk to BRINKO from your Android phone |
 
 ---

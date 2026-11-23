@@ -464,13 +464,16 @@ TOOL_DECLARATIONS = [
             "never invents facts (leaves [placeholders]). Without a connected mailbox it opens a "
             "ready-to-send Gmail compose window; with one it saves to Drafts. action=reply answers "
             "the latest email from someone using that email as context. read_recent lists the inbox. "
+            "The user can have SEVERAL mailboxes: pass account= to read from / send from a specific one "
+            "(account='all' reads every inbox; action=accounts lists them). "
             "Only action=send sends directly, and only if the user explicitly asked to send now. "
             "After it returns, briefly tell the user what you wrote (subject + gist), don't read it all."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":   {"type": "STRING", "description": "draft (default) | reply | send | read_recent | learn_style"},
+                "action":   {"type": "STRING", "description": "draft (default) | reply | send | read_recent | learn_style | accounts | remove_account"},
+                "account":  {"type": "STRING", "description": "Which of the user's mailboxes to use (part of the address or its label, e.g. 'work', 'hodekgaming'); 'all' for read_recent across every mailbox. Default = the main one."},
                 "to":       {"type": "STRING", "description": "Recipient address/name — for reply: who sent the email to answer"},
                 "topic":    {"type": "STRING", "description": "What the email should say, in the user's own words (keep word counts like '150 words')"},
                 "tone":     {"type": "STRING", "description": "Optional: formal, friendly, apologetic, firm…"},
@@ -1032,6 +1035,28 @@ TOOL_DECLARATIONS = [
             "long_session_minutes": {"type": "INTEGER", "description": "minutes in one app before a break nudge"}}}
     },
     {
+        "name": "inbox",
+        "description": (
+            "The user's messages (WhatsApp, Telegram, Instagram, SMS… caught from Windows notifications) and new "
+            "emails from ALL their mailboxes, plus headlines. action=show opens the inbox window on screen; "
+            "messages / emails / news return the latest as text. Use for 'show me my messages', 'what did X "
+            "write', 'any new emails', 'open my inbox', 'what news did I miss'."
+        ),
+        "parameters": {"type": "OBJECT", "properties": {
+            "action": {"type": "STRING", "description": "show (default) | messages | emails | news"}}}
+    },
+    {
+        "name": "microphone",
+        "description": (
+            "Turns BRINKO's OWN microphone input off/on (she stops hearing the user). Use for 'mute yourself', "
+            "'stop listening', 'mute your mic', 'don't listen for a bit'. It NEVER changes the computer's "
+            "speaker/system volume (that's the music tool). After muting, say one short line telling the user "
+            "to press Ctrl+Alt+B, click the mic button or type to unmute — you can't hear them anymore."
+        ),
+        "parameters": {"type": "OBJECT", "properties": {
+            "action": {"type": "STRING", "description": "mute (default) | unmute"}}}
+    },
+    {
         "name": "waitlist",
         "description": (
             "The user's FormProof waitlist: total signups, today, last 7 days and the newest people "
@@ -1119,6 +1144,12 @@ class BrinkoLive:
                 self.interrupt()
             self.focus.activate("orb tap")
         self.ui.on_orb_tap = _orb_tap
+
+        def _hotkey():                            # Ctrl+Alt+B also turns a voice-muted mic back on
+            if self.ui.muted:
+                self.ui.muted = False
+                self.ui.write_log("SYS: 🎙 Microphone on again (Ctrl+Alt+B).")
+        self.focus.on_hotkey = _hotkey
         try:                                     # Settings -> Voice saves, then this restarts the session
             self.ui._win._settings_panel.on_voice_changed = self.restart_voice_session
         except Exception:
@@ -1141,6 +1172,11 @@ class BrinkoLive:
             self.proactive.start()
         except Exception as e:
             print(f"[BRINKO] ⚠️ proactive: {e}")
+        try:
+            from actions import inbox as _inbox
+            _inbox.start(self, self.ui)
+        except Exception as e:
+            print(f"[BRINKO] ⚠️ inbox watcher: {e}")
         try:
             from actions import waitlist as _wl
             _wl.start_watcher(self, self.ui)
@@ -1436,6 +1472,15 @@ class BrinkoLive:
             return daily_briefing(args)
         if name == "set_voice":
             return self.set_voice(str(args.get("voice") or ""))
+        if name == "inbox":
+            from actions.inbox import inbox
+            return inbox(args, ui=ui)
+        if name == "microphone":
+            on = str(args.get("action") or "mute").lower() in ("unmute", "on", "open")
+            ui.muted = not on
+            return ("Microphone is ON again." if on else
+                    "Microphone is OFF (only BRINKO's input; the PC's sound is untouched). Tell the user in one "
+                    "short line: press Ctrl+Alt+B, click the mic button or type to turn it back on.")
         if name == "waitlist":
             from actions.waitlist import waitlist
             return waitlist(args)
@@ -1675,14 +1720,26 @@ class BrinkoLive:
         except Exception:
             pass
 
+        digest = ""
+        try:
+            from actions import inbox as _inbox
+            d = _inbox.startup_digest()
+            digest = _inbox.digest_text(d)
+            if self.ui.fx and (d.get("messages") or d.get("emails") or d.get("news")):
+                self.ui.fx.open("inbox.html", "")
+        except Exception as e:
+            print(f"[BRINKO] ⚠️ startup digest: {e}")
+
         self.speak(
             "[SESSION START — not something the user said] You just came online. "
-            "Greet the user out loud with ONE warm, natural opening line (two short "
-            "sentences max) in your BRINKO personality: friendly, a little witty, "
-            "glad to see them. Fit it to the time of day; use their name if known; "
-            "mention the weather only if it's given and only briefly. End by "
-            "inviting them to say what they need. Vary it — never a stock phrase. "
-            "Do NOT call any tools. Facts: " + " ".join(facts)
+            "Greet the user out loud warmly in your BRINKO personality (friendly, a little witty); fit it "
+            "to the time of day; use their name if known; weather only if given and only briefly. "
+            "Then give a SHORT catch-up from the digest below: who messaged them and the gist (read short "
+            "messages out), emails from real people (sender + what it's about; just a count for "
+            "newsletters), and the 1-2 biggest news headlines in one sentence each. Mention that their inbox "
+            "is open on screen. Whole thing under ~35 seconds; skip empty parts. End by asking what they "
+            "need. Do NOT call any tools. Facts: " + " ".join(facts)
+            + (" DIGEST: " + digest if digest else "")
         )
 
     async def _send_realtime(self):

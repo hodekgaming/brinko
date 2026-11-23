@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRINKO · Inbox</title>
+<style>
+  :root { --bg:#050d3f; --bg2:#0a1a6b; --panel:rgba(19,37,122,.72); --border:rgba(127,214,255,.22);
+          --text:#d8ecff; --dim:#94b3ea; --pri:#7fd6ff; --white:#f3f8ff; --green:#5df2b0; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background: radial-gradient(120% 90% at 50% 0%, #1c3fd0 0%, #0a1a6b 45%, #040b37 100%);
+               color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  header { display:flex; align-items:center; gap:14px; padding:18px 24px 10px; }
+  .mark { letter-spacing:.5em; font-weight:600; color:var(--white); font-size:13px; }
+  .sub { color:var(--dim); font-size:12px; }
+  .x { margin-left:auto; background:none; border:1px solid var(--border); color:var(--dim); border-radius:10px;
+       padding:6px 12px; cursor:pointer; font:inherit; }
+  .x:hover { color:var(--white); border-color:var(--pri); }
+  main { display:grid; grid-template-columns: 1.1fr 1.3fr .9fr; gap:16px; padding:8px 24px 24px; height:calc(100% - 64px); }
+  section { background:var(--panel); border:1px solid var(--border); border-radius:18px; padding:14px 14px 6px;
+            display:flex; flex-direction:column; min-height:0; backdrop-filter: blur(8px);
+            animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+  section:nth-child(2) { animation-delay:.06s } section:nth-child(3) { animation-delay:.12s }
+  @keyframes rise { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:none } }
+  h2 { margin:0 0 10px; font-size:11px; letter-spacing:.22em; color:var(--pri); font-weight:600; display:flex; gap:8px; }
+  h2 .n { color:var(--dim); letter-spacing:0; }
+  .list { overflow:auto; padding-right:4px; }
+  .list::-webkit-scrollbar { width:6px } .list::-webkit-scrollbar-thumb { background:rgba(127,214,255,.25); border-radius:3px }
+  .card { background:rgba(5,13,63,.45); border:1px solid rgba(127,214,255,.12); border-radius:12px; padding:10px 12px;
+          margin-bottom:8px; }
+  .card.new { border-color: rgba(93,242,176,.45); }
+  .top { display:flex; gap:8px; align-items:baseline; }
+  .who { color:var(--white); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:10px; color:var(--dim); border:1px solid var(--border); border-radius:6px; padding:0 6px; white-space:nowrap; }
+  .time { margin-left:auto; color:var(--dim); font-size:12px; white-space:nowrap; }
+  .subj { color:var(--text); margin-top:2px; }
+  .txt { color:var(--dim); margin-top:3px; font-size:13px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  a { color:var(--text); text-decoration:none } a:hover { color:var(--pri) }
+  .empty { color:var(--dim); padding:18px 4px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; overflow:auto } section { max-height:none } }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">B R I N K O</div>
+  <div class="sub" id="sub">Your inbox</div>
+  <button class="x" onclick="window.close()">Close · Esc</button>
+</header>
+<main>
+  <section><h2>MESSAGES <span class="n" id="nm"></span></h2><div class="list" id="msgs"></div></section>
+  <section><h2>EMAILS <span class="n" id="ne"></span></h2><div class="list" id="mails"></div></section>
+  <section><h2>NEWS</h2><div class="list" id="news"></div></section>
+</main>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function render(d) {
+  const m = d.messages || [], e = d.emails || [], n = d.news || [];
+  document.getElementById("nm").textContent = m.length || "";
+  document.getElementById("ne").textContent = e.length || "";
+  document.getElementById("sub").textContent = (d.accounts || []).length ? "Mailboxes: " + d.accounts.join(" · ") : "Your inbox";
+  document.getElementById("msgs").innerHTML = m.length ? m.map(x => `
+    <div class="card ${x.missed ? "new" : ""}"><div class="top"><span class="who">${esc(x.from)}</span>
+      <span class="tag">${esc((x.app||"").split(" ")[0])}</span><span class="time">${esc(x.time)}</span></div>
+      <div class="txt">${esc(x.text)}</div></div>`).join("")
+    : `<div class="empty">No messages yet. New WhatsApp, Telegram, Instagram and SMS messages show up here.</div>`;
+  document.getElementById("mails").innerHTML = e.length ? e.map(x => `
+    <div class="card ${x.person ? "new" : ""}"><div class="top"><span class="who">${esc(x.from)}</span>
+      <span class="tag">${esc((x.account||"").split("@")[0])}</span><span class="time">${esc(x.time)}</span></div>
+      <div class="subj">${esc(x.subject)}</div><div class="txt">${esc(x.snippet)}</div></div>`).join("")
+    : `<div class="empty">No new emails since BRINKO started.</div>`;
+  document.getElementById("news").innerHTML = n.length ? n.map(x => `
+    <div class="card"><a href="${esc(x.url)}" target="_blank"><div class="subj">${esc(x.title)}</div></a>
+      <div class="txt">${esc(x.source)} ${esc(x.date)}</div></div>`).join("")
+    : `<div class="empty">Loading headlines…</div>`;
+}
+async function load() {
+  try { render(await (await fetch("/fx/api/inbox", {cache: "no-store"})).json()); } catch (e) {}
+}
+load(); setInterval(load, 15000);
+addEventListener("keydown", e => { if (e.key === "Escape") window.close(); });
+</script>
+</body>
+</html>

@@ -60,30 +60,87 @@ _SETUP_MESSAGE = (
 )
 
 
-def _load_config() -> dict | None:
+def _raw_accounts() -> list[dict]:
+    """All saved mailboxes. email_config.json is {"accounts": [{email, app_password, label?}], "default": email}
+    (the old single {email, app_password} file still works)."""
     if not CONFIG_PATH.exists():
-        return None
+        return []
     try:
         cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except Exception:
-        return None
+        return []
+    accs = list(cfg.get("accounts") or [])
+    if cfg.get("email") and cfg.get("app_password") and not any(
+            a.get("email", "").lower() == str(cfg["email"]).lower() for a in accs):
+        accs.insert(0, {"email": cfg["email"], "app_password": cfg["app_password"]})
+    default = str(cfg.get("default") or "").lower()
+    accs.sort(key=lambda a: 0 if a.get("email", "").lower() == default else 1)
+    return accs
+
+
+def _complete(acc: dict) -> dict | None:
+    cfg = dict(acc)
     if not cfg.get("email") or not cfg.get("app_password"):
         return None
-    # Google displays app passwords as "abcd efgh ijkl mnop" — the spaces
-    # aren't part of the password.
+    # Google displays app passwords as "abcd efgh ijkl mnop" — the spaces aren't part of the password.
     cfg["app_password"] = str(cfg["app_password"]).replace(" ", "").strip()
     cfg["email"] = str(cfg["email"]).strip()
-
     domain = cfg["email"].split("@")[-1].lower()
     provider = _KNOWN_PROVIDERS.get(domain, {})
     cfg.setdefault("imap_host", provider.get("imap"))
     cfg.setdefault("imap_port", provider.get("imap_port", 993))
     cfg.setdefault("smtp_host", provider.get("smtp"))
     cfg.setdefault("smtp_port", provider.get("smtp_port", 587))
-
     if not cfg["imap_host"] or not cfg["smtp_host"]:
         return None
     return cfg
+
+
+def all_configs() -> list[dict]:
+    return [c for c in (_complete(a) for a in _raw_accounts()) if c]
+
+
+def _load_config(account: str | None = None) -> dict | None:
+    """The mailbox to use: one whose address/label contains `account` (e.g. 'work', 'hodekgaming',
+    'gmail'), else the default one."""
+    cfgs = all_configs()
+    if not cfgs:
+        return None
+    a = (account or "").strip().lower()
+    if a and a not in ("default", "main", "all"):
+        for c in cfgs:
+            if a in c["email"].lower() or a in str(c.get("label", "")).lower():
+                return c
+    return cfgs[0]
+
+
+def save_account(email: str, app_password: str, label: str = "", make_default: bool = False) -> None:
+    try:
+        cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
+    except Exception:
+        cfg = {}
+    accs = _raw_accounts()
+    accs = [a for a in accs if a.get("email", "").lower() != email.lower()]
+    accs.append({"email": email, "app_password": app_password, **({"label": label} if label else {})})
+    default = email if (make_default or not cfg.get("default") and not cfg.get("email")) else (cfg.get("default") or cfg.get("email"))
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps({"accounts": accs, "default": default}, indent=2), encoding="utf-8")
+
+
+def remove_account(match: str) -> str:
+    accs = _raw_accounts()
+    keep = [a for a in accs if match.lower() not in a.get("email", "").lower()]
+    if len(keep) == len(accs):
+        return f"No saved email matches '{match}'."
+    try:
+        cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        cfg = {}
+    default = cfg.get("default") or cfg.get("email") or ""
+    if not any(a["email"] == default for a in keep):
+        default = keep[0]["email"] if keep else ""
+    CONFIG_PATH.write_text(json.dumps({"accounts": keep, "default": default}, indent=2), encoding="utf-8")
+    return "Removed. Saved emails now: " + (", ".join(a["email"] for a in keep) or "none")
 
 
 def _connect_imap(cfg: dict) -> imaplib.IMAP4_SSL:
@@ -371,7 +428,27 @@ def email_agent(
     topic    = str(p.get("topic", "")).strip()
     tone     = str(p.get("tone", "")).strip()
     language = str(p.get("language", "")).strip()
-    cfg      = _load_config()
+    account  = str(p.get("account", "") or p.get("from_account", "")).strip()
+    cfg      = _load_config(account)
+
+    if action == "accounts":
+        cfgs = all_configs()
+        return ("Saved mailboxes: " + ", ".join(c["email"] + (" (default)" if i == 0 else "") for i, c in enumerate(cfgs))
+                if cfgs else "No mailbox connected yet: Settings -> Email.")
+    if action == "remove_account":
+        return remove_account(account or to)
+    if action == "read_recent" and account.lower() == "all" and len(all_configs()) > 1:
+        out = []
+        for c in all_configs():
+            try:
+                im = _connect_imap(c)
+                try:
+                    out.append(f"== {c['email']} ==" + chr(10) + _read_recent(im, int(p.get("count") or 5)))
+                finally:
+                    im.logout()
+            except Exception as e:
+                out.append(f"== {c['email']} == couldn't open: {str(e)[:80]}")
+        return chr(10).join(out)
 
     if player:
         player.write_log(f"[Email] {action}")

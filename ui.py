@@ -1505,7 +1505,7 @@ class SettingsPanel(QWidget):
             ("Bland.ai Key",      "bland_api_key",      True,  "optional — for phone calls"),
         ]),
         ("EMAIL", [
-            ("Email Address",     "email_addr",         False, "you@gmail.com"),
+            ("Add email",         "email_addr",         False, "you@gmail.com (add as many as you like)"),
             ("App Password",      "email_pass",         True,  "xxxx xxxx xxxx xxxx"),
         ]),
         ("PREFERENCES", [
@@ -1626,6 +1626,12 @@ class SettingsPanel(QWidget):
                     e.setEchoMode(mode)
         show_pw.toggled.connect(_toggle_pw)
         outer.addWidget(show_pw)
+        self._acc_lbl = QLabel("")
+        self._acc_lbl.setFont(_font(8))
+        self._acc_lbl.setWordWrap(True)
+        self._acc_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
+        outer.addWidget(self._acc_lbl)
+        self._show_accounts()
 
         phone_btn = QPushButton("📱  Connect phone")
         phone_btn.setFixedHeight(38)
@@ -1685,13 +1691,18 @@ class SettingsPanel(QWidget):
                 self._voice.setCurrentIndex(max(0, i))
         except Exception:
             pass
+        self._show_accounts()
+
+    def _show_accounts(self):
         try:
-            if email_path.exists():
-                d = json.loads(email_path.read_text(encoding="utf-8"))
-                self._fields["email_addr"].setText(d.get("email", ""))
-                self._fields["email_pass"].setText(d.get("app_password", ""))
+            from actions.email_agent import _raw_accounts
+            accs = [a["email"] for a in _raw_accounts()]
         except Exception:
-            pass
+            accs = []
+        if not hasattr(self, "_acc_lbl"):
+            return
+        self._acc_lbl.setText(("Connected: " + ", ".join(accs) + "  ·  say \"remove the email …\" to drop one")
+                              if accs else "No mailbox connected yet.")
 
     def _save(self):
         cfg_dir = self._config_dir()
@@ -1736,12 +1747,12 @@ class SettingsPanel(QWidget):
                 self._status.setWordWrap(True)
                 self._status.setStyleSheet(f"color: {C.RED}; background: transparent;")
                 return
-            email_path = cfg_dir / "email_config.json"
             try:
-                email_path.write_text(json.dumps({
-                    "email":        _v("email_addr"),
-                    "app_password": _v("email_pass"),
-                }, indent=2), encoding="utf-8")
+                from actions.email_agent import save_account
+                save_account(_v("email_addr"), _v("email_pass"))
+                self._fields["email_addr"].clear()
+                self._fields["email_pass"].clear()
+                self._show_accounts()
             except Exception as e:
                 self._status.setText(f"⚠️ Could not save email_config.json: {e}")
                 self._status.setStyleSheet(f"color: {C.RED}; background: transparent;")
@@ -2386,6 +2397,9 @@ class BrinkoUI:
         self._app.setStyle("Fusion")
         self._win = MainWindow(face_path)
         self._win.show()
+        # Started by Windows at login: come to the FRONT, not behind Explorer/other startup apps.
+        for ms in (300, 1500, 4000):
+            QTimer.singleShot(ms, self.bring_to_front)
         self.root = _RootShim(self._app)
         self._log_subscribers: list = []
         self._log_sub_lock = threading.Lock()
@@ -2397,6 +2411,22 @@ class BrinkoUI:
         except Exception as e:
             print(f"[UI] FX host unavailable: {e}")
             self.fx = None
+
+    def bring_to_front(self):
+        w = self._win
+        try:
+            if w.isMinimized():
+                w._restore_from_mini()
+            w.show(); w.raise_(); w.activateWindow()
+            if sys.platform == "win32":
+                import ctypes
+                u32 = ctypes.windll.user32
+                hwnd = int(w.winId())
+                u32.keybd_event(0x12, 0, 0, 0); u32.keybd_event(0x12, 0, 2, 0)   # Alt tap unlocks SetForegroundWindow
+                u32.ShowWindow(hwnd, 9)
+                u32.SetForegroundWindow(hwnd)
+        except Exception as e:
+            print(f"[UI] bring_to_front: {e}")
 
     def subscribe_log(self, fn):
         """Registers fn(text) to be called on every write_log — used by

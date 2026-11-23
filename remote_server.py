@@ -288,6 +288,13 @@ def start_remote_server(ui, port: int = PORT) -> None:
         from actions import characters
         return jsonify({"ok": characters.remove(slug)})
 
+    @app.route("/fx/api/inbox")
+    def fx_inbox():
+        if not _local_only():
+            return jsonify({"error": "local only"}), 403
+        from actions import inbox
+        return jsonify(inbox.inbox_json())
+
     @app.route("/fx/<path:name>")
     def fx(name):
         ext = Path(name).suffix.lower()

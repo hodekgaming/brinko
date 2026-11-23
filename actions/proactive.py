@@ -223,7 +223,7 @@ class Proactive:
             except Exception as e:
                 print(f"[Proactive] rain: {e}")
         # new email from a person (every 4 min)
-        if self._every("mail", 240):
+        if False and self._every("mail", 240):          # replaced by actions/inbox.py (all mailboxes, 60 s)
             try:
                 mails, self._email_uid = new_person_emails(self._email_uid)
                 if mails:
@@ -260,8 +260,11 @@ class Proactive:
                 self.ui.write_log(f"SYS: 💡 {msg.split(' - ')[0].split('. Tell')[0].split('. Mention')[0]}")
                 continue
             self.ui.write_log(f"SYS: 💡 {msg[:120]}")
-            b.speak("[PROACTIVE NOTICE - not something the user said] Without being asked, tell the user in ONE "
-                    f"short natural sentence: {msg} Don't call any tool for this.")
+            if msg.startswith(("[NEW MESSAGE", "[NEW EMAIL")):   # carries its own read-out instructions
+                b.speak("[NOTICE - not something the user said] " + msg)
+            else:
+                b.speak("[PROACTIVE NOTICE - not something the user said] Without being asked, tell the user in ONE "
+                        f"short natural sentence: {msg} Don't call any tool for this.")
             busy = True                                   # one notice at a time
         self._queue = keep
 

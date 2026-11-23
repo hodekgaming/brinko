@@ -181,6 +181,12 @@ class VoiceFocus:
             msg = wintypes.MSG()
             while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
                 if msg.message == 0x0312:   # WM_HOTKEY
+                    cb = getattr(self, "on_hotkey", None)
+                    if cb:
+                        try:
+                            cb()
+                        except Exception as e:
+                            print(f"[VoiceFocus] hotkey callback: {e}")
                     self.activate(HOTKEY_LABEL)
         except Exception as e:
             print(f"[VoiceFocus] ⚠️ hotkey: {e}")

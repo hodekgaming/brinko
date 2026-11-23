@@ -230,7 +230,10 @@ class FxHost(QObject):
 
     def _on_open(self, page: str, query: str):
         close_all("/fx/" + page)
-        FxWindow(self._url(page, query), kind="fullscreen")
+        if page == "inbox.html":                       # a normal-size panel, not a full-screen effect
+            FxWindow(self._url(page, query), kind="panel", size=(1280, 780))
+        else:
+            FxWindow(self._url(page, query), kind="fullscreen")
 
     def _on_doc_start(self, key: str):
         d = self._docs[key]
