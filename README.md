@@ -55,6 +55,7 @@ The ⚙ button in the top corner opens **Settings**: voice, email, phone app and
 | 🌌 **Screensaver** | A real-time black hole |
 | 📊 **Your socials** | "How many followers do I have?": Instagram, YouTube and TikTok followers, growth and views on your latest posts (public stats, no logins) |
 | 💬 **Messages & email** | Reads new WhatsApp / Telegram / Instagram / SMS messages and new emails out loud as they arrive; several mailboxes; a catch-up of what you missed + an inbox window at startup |
+| 🎬 **Video studio** | What's going viral on TikTok for any topic, why a video went viral, beat-synced edits (anime / Stranger Things / hype…) from your own clips, and full reels with a natural free AI voice and karaoke captions |
 | 📱 **Phone app** | Settings → Connect phone: talk to BRINKO from your Android phone |
 
 ---

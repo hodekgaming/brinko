@@ -22,3 +22,6 @@ fx/characters/
 .venv/
 venv/
 *.tmp
+
+# big local models (downloaded by the app / installer)
+models/

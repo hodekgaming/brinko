@@ -182,7 +182,7 @@ from agent.background_jobs     import get_jobs
 # returns instantly, BRINKO keeps talking/listening, and the result is
 # announced when the job finishes — so you can keep doing your own thing.
 BACKGROUND_TOOLS = {
-    "create_document", "agent_task", "code_project",
+    "create_document", "video_studio", "social_stats", "agent_task", "code_project",
     "dev_agent", "code_helper", "file_processor", "flight_finder",
     "ad_content", "game_updater", "email_agent", "youtube_video",
 }
@@ -1035,6 +1035,32 @@ TOOL_DECLARATIONS = [
             "long_session_minutes": {"type": "INTEGER", "description": "minutes in one app before a break nudge"}}}
     },
     {
+        "name": "video_studio",
+        "description": (
+            "BRINKO's free video studio for TikTok/Reels/Shorts (runs as a background job; output 1080x1920 mp4 in "
+            "Documents/BRINKO/Videos, opened when done). actions: "
+            "trends = what's going viral on TikTok for a topic (top videos, sounds, length, cut pace + a style guide); "
+            "analyze = watch a viral video (TikTok/IG/YouTube link or local file) and explain why it works and how to copy it; "
+            "edit = beat-synced edit from the USER'S OWN footage (folder or files) + a song: cuts on the beat, zoom "
+            "punches, flashes, shake, colour grade (style: anime | stranger things | hype | cinematic | clean); "
+            "reel = full video with a natural AI voiceover (free local voice, ElevenLabs-like), karaoke captions, "
+            "music ducked under the voice, using their footage or a dark animated background; script = just write "
+            "a script; voiceover = just the voice file. Ask for the footage folder / song if they want an edit and "
+            "didn't say where it is. Run trends first when they want 'what's viral' style."
+        ),
+        "parameters": {"type": "OBJECT", "properties": {
+            "action":  {"type": "STRING", "description": "trends | analyze | edit | reel | script | voiceover"},
+            "topic":   {"type": "STRING", "description": "topic / niche / what the video is about (e.g. 'stranger things edit', 'FormProof plank challenge')"},
+            "source":  {"type": "STRING", "description": "analyze: a video link or file path"},
+            "footage": {"type": "STRING", "description": "edit/reel: folder or video file paths (separate several with ;)"},
+            "music":   {"type": "STRING", "description": "song file (or a video whose audio to use); default = a song in the footage folder"},
+            "style":   {"type": "STRING", "description": "edit style: anime | stranger things | hype | cinematic | clean"},
+            "script":  {"type": "STRING", "description": "reel/voiceover: exact words to say (else BRINKO writes it)"},
+            "voice":   {"type": "STRING", "description": "male (default) | female | british | deep | energetic | calm"},
+            "seconds": {"type": "INTEGER", "description": "target length in seconds (edits 6-90, reels ~15-45)"},
+            "title":   {"type": "STRING", "description": "optional title text on screen"}}}
+    },
+    {
         "name": "inbox",
         "description": (
             "The user's messages (WhatsApp, Telegram, Instagram, SMS… caught from Windows notifications) and new "
@@ -1472,6 +1498,9 @@ class BrinkoLive:
             return daily_briefing(args)
         if name == "set_voice":
             return self.set_voice(str(args.get("voice") or ""))
+        if name == "video_studio":
+            from actions.video_studio import video_studio
+            return video_studio(args, player=ui)
         if name == "inbox":
             from actions.inbox import inbox
             return inbox(args, ui=ui)

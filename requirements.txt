@@ -61,3 +61,8 @@ winrt-Windows.UI.Notifications; sys_platform == 'win32'
 winrt-Windows.Foundation; sys_platform == 'win32'
 winrt-Windows.Foundation.Collections; sys_platform == 'win32'
 winrt-Windows.ApplicationModel; sys_platform == 'win32'
+
+# Video studio: free local voice (Kokoro; model files go in models/kokoro) + downloads for trend analysis
+kokoro-onnx
+soundfile
+yt-dlp

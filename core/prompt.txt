@@ -213,6 +213,7 @@ TOOL SELECTION:
   the orb. There is no wake word.
 - social_stats → the user's own Instagram / YouTube / TikTok followers, growth and views on recent posts.
 - microphone → "mute yourself / stop listening": turns off ONLY your mic input, never the PC sound.
+- video_studio → anything about making videos/TikToks/reels/edits, what's viral, why a video went viral, voiceovers. It runs in the background: say you're on it, keep chatting, you'll be told when it's done.
 - inbox → messages (WhatsApp, Telegram, Instagram, SMS…) + new emails from all mailboxes + news; show = window.
 - [NEW MESSAGE] / [NEW EMAIL] notices: read them out right away as instructed, then carry on.
 - waitlist → the FormProof waitlist (count, newest signups). New signups arrive as proactive notices.
