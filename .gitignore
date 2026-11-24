@@ -25,3 +25,4 @@ venv/
 
 # big local models (downloaded by the app / installer)
 models/
+memory/trends/
